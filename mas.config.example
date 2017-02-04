@@ -1,0 +1,8 @@
+[
+ {mas,
+  [
+   {islands, 12},
+   {population_size, 100}
+  ]
+ }
+].

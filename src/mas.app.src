@@ -7,7 +7,12 @@
    [kernel,
     stdlib
    ]},
-  {env,[]},
+  {env,
+   [
+    {islands, 12},
+    {population_size, 100}
+   ]
+  },
   {modules, []},
   {maintainers, ["Bartosz Zurkowski"]},
   {licenses, ["MIT"]},
