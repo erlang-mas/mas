@@ -7,9 +7,10 @@
          behaviours/0,
          meeting_function/1]).
 
--record(agent, {energy=100}).
+-record(agent, {id     :: integer(),
+                energy :: integer()}).
 
-initial_agent() -> #agent{}.
+initial_agent() -> #agent{id=rand:uniform(100), energy=100}.
 
 behaviour_function(Agent) -> fight.
 

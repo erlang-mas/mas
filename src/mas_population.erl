@@ -57,7 +57,7 @@ init() ->
 %%--------------------------------------------------------------------
 generate_population(Mod) ->
     PopulationSize = mas_config:get_env(population_size),
-    lists:duplicate(PopulationSize, Mod:initial_agent()).
+    [Mod:initial_agent() || _ <- lists:seq(1, PopulationSize)].
 
 %%--------------------------------------------------------------------
 %% @private
