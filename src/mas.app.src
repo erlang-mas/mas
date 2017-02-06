@@ -11,7 +11,8 @@
    [
     {islands, 12},
     {population_size, 100},
-    {population, mas_test_population}
+    {population, mas_test_population},
+    {migration_probability, 0.05}
    ]
   },
   {modules, []},

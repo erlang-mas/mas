@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/0, migrate_agent/1]).
 
 %% Server callbacks
 -export([init/1,
@@ -19,6 +19,8 @@
          terminate/2,
          code_change/3]).
 
+-define(SERVER, ?MODULE).
+
 -record(state, {populations :: [pid()]}).
 
 %%====================================================================
@@ -26,7 +28,10 @@
 %%====================================================================
 
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+
+migrate_agent(Agent) ->
+    gen_server:cast(?SERVER, {migrate, Agent, self()}).
 
 %%====================================================================
 %% Server callbacks
@@ -37,6 +42,12 @@ init([]) ->
 
 handle_call(_Request, _From, State) ->
     {reply, undef, State}.
+
+handle_cast({migrate, Agent, From}, State) ->
+    Populations = [P || P <- State#state.populations, P =/= From],
+    Destination = mas_utils:sample(Populations),
+    mas_population:add_agent(Destination, Agent),
+    {noreply, State};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.

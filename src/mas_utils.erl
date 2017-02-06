@@ -6,7 +6,7 @@
 -module(mas_utils).
 
 %% API
--export([group_by/1, shuffle/1]).
+-export([group_by/1, shuffle/1, sample/1]).
 
 %%%===================================================================
 %%% API functions
@@ -30,3 +30,11 @@ group_by(L) ->
 shuffle(L) ->
     Rand = [{rand:uniform(), N} || N <- L],
     [X || {_, X} <- lists:sort(Rand)].
+
+%%--------------------------------------------------------------------
+%% @doc Picks random element from the list.
+%% @end
+%%--------------------------------------------------------------------
+sample(L) ->
+    Index = rand:uniform(length(L)),
+    lists:nth(Index, L).
