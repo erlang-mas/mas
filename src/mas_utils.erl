@@ -19,8 +19,8 @@
 %% @end
 %%--------------------------------------------------------------------
 group_by(L) ->
-    FoldFunc = fun({K, V}, D) -> dict:append(K, V, D) end,
-    Dict = lists:foldl(FoldFunc, dict:new(), L),
+    Fold = fun({K, V}, D) -> dict:append(K, V, D) end,
+    Dict = lists:foldl(Fold, dict:new(), L),
     dict:to_list(Dict).
 
 %%--------------------------------------------------------------------

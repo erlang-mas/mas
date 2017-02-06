@@ -6,7 +6,7 @@
 -module(mas_population).
 
 %% API
--export([start/0, start_link/0, init/0, add_agent/2]).
+-export([start_link/0, init/0, add_agent/2]).
 
 -type agent()     :: any().
 -type behaviour() :: atom().
@@ -29,9 +29,6 @@
 %%%===================================================================
 %%% API functions
 %%%===================================================================
-
-start() ->
-    spawn(?MODULE, init, []).
 
 start_link() ->
     spawn_link(?MODULE, init, []).
@@ -62,30 +59,39 @@ generate_population(Mod) ->
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-loop(State = #state{agents=Agents, module=Mod}) ->
+loop(State) ->
     receive
-        {agent, NewAgent} ->
-            loop(State#state{agents=[NewAgent | Agents]})
+        Msg -> loop(handle_msg(Msg, State))
     after 0 ->
-        TaggedAgents = determine_behaviours(Mod, Agents),
-
-        ArenasBefore = form_arenas(TaggedAgents),
-        ArenasAfter  = apply_meetings(Mod, ArenasBefore),
-
-        NewAgents = normalize(ArenasAfter),
-        loop(State#state{agents=NewAgents})
+        loop(process_population(State))
     end.
 
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-determine_behaviours(Mod, Agents) ->
-    [{behaviour_function(Mod, Agent), Agent} || Agent <- Agents].
+handle_msg({agent, NewAgent}, State = #state{agents=Agents}) ->
+    State#state{agents=[NewAgent | Agents]}.
 
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-behaviour_function(Mod, Agent) ->
+process_population(State = #state{agents=Agents, module=Mod}) ->
+    TaggedAgents    = determine_behaviours(Mod, Agents),
+    Arenas          = form_arenas(TaggedAgents),
+    ProcessedArenas = process_arenas(Mod, Arenas),
+    NewAgents       = normalize(ProcessedArenas),
+    State#state{agents=NewAgents}.
+
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
+determine_behaviours(Mod, Agents) ->
+    [{behaviour(Mod, Agent), Agent} || Agent <- Agents].
+
+%%--------------------------------------------------------------------
+%% @private
+%%--------------------------------------------------------------------
+behaviour(Mod, Agent) ->
     MP = mas_config:get_env(migration_probability),
     case rand:uniform() of
         R when R < MP  -> migration;
@@ -101,16 +107,15 @@ form_arenas(Agents) ->
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-apply_meetings(Mod, Arenas) ->
-    [meeting_function(Mod, Arena) || Arena <- Arenas].
+process_arenas(Mod, Arenas) ->
+    [apply_meetings(Mod, Arena) || Arena <- Arenas].
 
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-meeting_function(_Mod, {migration, Agents}) ->
-    [mas_world:migrate_agent(Agent) || Agent <- Agents],
-    [];
-meeting_function(Mod, Arena) ->
+apply_meetings(_Mod, {migration, Agents}) ->
+    [mas_world:migrate_agent(Agent) || Agent <- Agents], [];
+apply_meetings(Mod, Arena) ->
     Mod:meeting_function(Arena).
 
 %%--------------------------------------------------------------------
