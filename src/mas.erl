@@ -1,14 +1,15 @@
 %%%-------------------------------------------------------------------
-%% @doc MAS top level supervisor.
+%% @doc MAS supervised application.
 %% @end
 %%%-------------------------------------------------------------------
 
--module(mas_sup).
+-module(mas).
 
+-behaviour(application).
 -behaviour(supervisor).
 
-%% API
--export([start_link/0]).
+%% Application callbacks
+-export([start/2, stop/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -16,20 +17,22 @@
 -define(SERVER, ?MODULE).
 
 %%====================================================================
-%% API functions
+%% Application callbacks
 %%====================================================================
 
-start_link() ->
+start(_StartType, _StartArgs) ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+
+stop(_State) ->
+    ok.
 
 %%====================================================================
 %% Supervisor callbacks
 %%====================================================================
 
-%% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    Specs = [spec(mas_world)],
-    {ok, {{one_for_all, 0, 1}, Specs}}.
+    ChildSpecs = [child_spec(mas_world)],
+    {ok, {{one_for_all, 0, 1}, ChildSpecs}}.
 
 %%====================================================================
 %% Internal functions
@@ -38,5 +41,5 @@ init([]) ->
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-spec(M) ->
+child_spec(M) ->
     {M, {M, start_link, []}, permanent, brutal_kill, worker, [M]}.

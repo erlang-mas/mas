@@ -2,7 +2,7 @@
  [{description, "Multi agent system engine"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, { mas_app, []}},
+  {mod, { mas, []}},
   {applications,
    [kernel,
     stdlib
