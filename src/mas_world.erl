@@ -67,4 +67,5 @@ code_change(_OldVsn, State, _Extra) ->
 
 spawn_populations() ->
     Islands = mas_config:get_env(islands),
-    [mas_population:start_link() || _ <- lists:seq(1, Islands)].
+    OkPids = [mas_population:start_link() || _ <- lists:seq(1, Islands)],
+    [Pid || {_, Pid} <- OkPids].
