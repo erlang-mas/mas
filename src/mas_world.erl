@@ -80,8 +80,8 @@ spawn_populations() ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
 
 calculate_destination(From, #state{populations=Populations}) ->
-    Destinations = [P || P <- Populations, P =/= From],
-    mas_utils:sample(Destinations).
+    Topology = mas_config:get_env(topology),
+    mas_topology:calculate_destination(Topology, From, Populations).
 
 gather_agents(#state{populations=Populations}) ->
     Results = [gather_population(Population) || Population <- Populations],

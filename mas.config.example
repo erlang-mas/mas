@@ -3,7 +3,8 @@
   [
    {populations_count, 12},
    {population_size, 100},
-   {population, mas_test_population}
+   {population, mas_test_population},
+   {topology, mesh}
   ]
  }
 ].
