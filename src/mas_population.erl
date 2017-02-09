@@ -1,7 +1,8 @@
-%%%-------------------------------------------------------------------
-%% @doc Defines generic behaviour for MAS population.
+%%%-----------------------------------------------------------------------------
+%% @doc
+%% Defines generic behaviour for MAS population.
 %% @end
-%%%-------------------------------------------------------------------
+%%%-----------------------------------------------------------------------------
 
 -module(mas_population).
 
@@ -24,9 +25,9 @@
 -record(state, {agents :: [agent()],
                 module :: module()}).
 
-%%%===================================================================
-%%% Behaviour
-%%%===================================================================
+%%==============================================================================
+%% Behaviour
+%%==============================================================================
 
 -callback initial_agent() -> agent().
 
@@ -36,9 +37,9 @@
 
 -callback meeting({behaviour(), [agent()]}) -> [agent()].
 
-%%%===================================================================
-%%% API functions
-%%%===================================================================
+%%==============================================================================
+%% API functions
+%%==============================================================================
 
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
@@ -46,9 +47,9 @@ start_link() ->
 add_agent(Pid, Agent) ->
     gen_server:cast(Pid, {add_agent, Agent}).
 
-%%====================================================================
+%%==============================================================================
 %% Server callbacks
-%%====================================================================
+%%==============================================================================
 
 init(_Args) ->
     Mod = mas_config:get_env(population),
@@ -63,7 +64,6 @@ handle_call(_Request, _From, State) ->
 handle_cast({add_agent, Agent}, State = #state{agents=Agents}) ->
     NewState = State#state{agents=[Agent | Agents]},
     {noreply, NewState};
-
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -71,7 +71,6 @@ handle_info(process_population, State) ->
     NewState = process_population(State),
     self() ! process_population,
     {noreply, NewState};
-
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -81,20 +80,14 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%====================================================================
+%%==============================================================================
 %% Internal functions
-%%====================================================================
+%%==============================================================================
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 generate_population(Mod) ->
     PopulationSize = mas_config:get_env(population_size),
     [Mod:initial_agent() || _ <- lists:seq(1, PopulationSize)].
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 process_population(State = #state{module=Mod, agents=Agents}) ->
     TaggedAgents = determine_behaviours(Mod, Agents),
     Arenas = form_arenas(TaggedAgents),
@@ -102,15 +95,9 @@ process_population(State = #state{module=Mod, agents=Agents}) ->
     NewAgents = normalize(ProcessedArenas),
     State#state{agents=NewAgents}.
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 determine_behaviours(Mod, Agents) ->
     [{behaviour(Mod, Agent), Agent} || Agent <- Agents].
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 behaviour(Mod, Agent) ->
     MP = mas_config:get_env(migration_probability),
     case rand:uniform() of
@@ -118,28 +105,16 @@ behaviour(Mod, Agent) ->
         R when R >= MP -> Mod:behaviour(Agent)
     end.
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 form_arenas(Agents) ->
     mas_utils:group_by(Agents).
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 process_arenas(Mod, Arenas) ->
     [apply_meetings(Mod, Arena) || Arena <- Arenas].
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 apply_meetings(_Mod, {migration, Agents}) ->
     [mas_world:migrate_agent(Agent) || Agent <- Agents], [];
 apply_meetings(Mod, Arena) ->
     Mod:meeting(Arena).
 
-%%--------------------------------------------------------------------
-%% @private
-%%--------------------------------------------------------------------
 normalize(Arenas) ->
     mas_utils:shuffle(lists:flatten(Arenas)).

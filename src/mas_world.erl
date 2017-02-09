@@ -1,8 +1,8 @@
-%%%-------------------------------------------------------------------
-%% @doc Spawns multiple populations and handles agent migrations
-%% between them.
+%%%-----------------------------------------------------------------------------
+%% @doc
+%% Spawns multiple populations of agents. Handles agent migrations.
 %% @end
-%%%-------------------------------------------------------------------
+%%%-----------------------------------------------------------------------------
 
 -module(mas_world).
 
@@ -24,9 +24,9 @@
 
 -record(state, {populations :: [pid()]}).
 
-%%%===================================================================
+%%==============================================================================
 %%% API functions
-%%%===================================================================
+%%==============================================================================
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
@@ -34,9 +34,9 @@ start_link() ->
 migrate_agent(Agent) ->
     gen_server:cast(?SERVER, {migrate_agent, Agent, self()}).
 
-%%%===================================================================
+%%==============================================================================
 %%% Server callbacks
-%%%===================================================================
+%%==============================================================================
 
 init(_Args) ->
     self() ! spawn_populations,
@@ -50,14 +50,12 @@ handle_cast({migrate_agent, Agent, From}, State) ->
     Destination = mas_utils:sample(Populations),
     mas_population:add_agent(Destination, Agent),
     {noreply, State};
-
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info(spawn_populations, State) ->
     Populations = spawn_populations(),
     {noreply, State#state{populations=Populations}};
-
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -67,9 +65,9 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%%===================================================================
+%%==============================================================================
 %%% Internal functions
-%%%===================================================================
+%%==============================================================================
 
 spawn_populations() ->
     Count = mas_config:get_env(populations_count),
