@@ -23,7 +23,9 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations :: [pid()]}).
+-record(state, {populations       :: [pid()],
+                populations_count :: integer(),
+                topology          :: atom()}).
 
 %%==============================================================================
 %%% API functions
@@ -44,7 +46,9 @@ migrate_agent(Agent) ->
 
 init(_Args) ->
     self() ! spawn_populations,
-    {ok, #state{}}.
+    {ok, #state{populations       = [],
+                populations_count = mas_config:get_env(populations_count),
+                topology          = mas_config:get_env(topology)}}.
 
 handle_call(get_agents, _From, State) ->
     Results = gather_agents(State),
@@ -60,8 +64,8 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info(spawn_populations, State) ->
-    Populations = spawn_populations(),
-    {noreply, State#state{populations=Populations}};
+    Populations = spawn_populations(State),
+    {noreply, State#state{populations = Populations}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -75,15 +79,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%==============================================================================
 
-spawn_populations() ->
-    Count = mas_config:get_env(populations_count),
+spawn_populations(#state{populations_count = Count}) ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
 
-calculate_destination(From, #state{populations=Populations}) ->
-    Topology = mas_config:get_env(topology),
+calculate_destination(From, #state{populations = Populations,
+                                   topology    = Topology}) ->
     mas_topology:calculate_destination(Topology, From, Populations).
 
-gather_agents(#state{populations=Populations}) ->
+gather_agents(#state{populations = Populations}) ->
     Results = [gather_population(Population) || Population <- Populations],
     lists:flatten(Results).
 

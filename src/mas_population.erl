@@ -24,8 +24,9 @@
 -type agent()     :: any().
 -type behaviour() :: atom().
 
--record(state, {agents :: [agent()],
-                module :: module()}).
+-record(state, {agents                :: [agent()],
+                module                :: module(),
+                migration_probability :: float()}).
 
 %%==============================================================================
 %% Behaviour
@@ -59,17 +60,19 @@ add_agent(Pid, Agent) ->
 init(_Args) ->
     Mod = mas_config:get_env(population),
     InitialAgents = generate_population(Mod),
+    MP = mas_config:get_env(migration_probability),
     self() ! process_population,
-    {ok, #state{module=Mod,
-                agents=InitialAgents}}.
+    {ok, #state{module                = Mod,
+                agents                = InitialAgents,
+                migration_probability = MP}}.
 
 handle_call(get_agents, _From, State) ->
     {reply, {agents, State#state.agents}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
-handle_cast({add_agent, Agent}, State = #state{agents=Agents}) ->
-    NewState = State#state{agents=[Agent | Agents]},
+handle_cast({add_agent, Agent}, State = #state{agents = Agents}) ->
+    NewState = State#state{agents = [Agent | Agents]},
     {noreply, NewState};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -95,18 +98,17 @@ generate_population(Mod) ->
     PopulationSize = mas_config:get_env(population_size),
     [Mod:initial_agent() || _ <- lists:seq(1, PopulationSize)].
 
-process_population(State = #state{module=Mod, agents=Agents}) ->
-    TaggedAgents = determine_behaviours(Mod, Agents),
+process_population(State) ->
+    TaggedAgents = determine_behaviours(State),
     Arenas = form_arenas(TaggedAgents),
-    ProcessedArenas = process_arenas(Mod, Arenas),
+    ProcessedArenas = process_arenas(Arenas, State),
     NewAgents = normalize(ProcessedArenas),
-    State#state{agents=NewAgents}.
+    State#state{agents = NewAgents}.
 
-determine_behaviours(Mod, Agents) ->
-    [{behaviour(Mod, Agent), Agent} || Agent <- Agents].
+determine_behaviours(State#state{agents = Agents}) ->
+    [{behaviour(Agent, State), Agent} || Agent <- Agents].
 
-behaviour(Mod, Agent) ->
-    MP = mas_config:get_env(migration_probability),
+behaviour(Agent, #state{module = Mod, migration_probability = MP}) ->
     case rand:uniform() of
         R when R < MP  -> migration;
         R when R >= MP -> Mod:behaviour(Agent)
@@ -115,7 +117,7 @@ behaviour(Mod, Agent) ->
 form_arenas(Agents) ->
     mas_utils:group_by(Agents).
 
-process_arenas(Mod, Arenas) ->
+process_arenas(Arenas, #state{module = Mod}) ->
     [apply_meetings(Mod, Arena) || Arena <- Arenas].
 
 apply_meetings(_Mod, {migration, Agents}) ->
