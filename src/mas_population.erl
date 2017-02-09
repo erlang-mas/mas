@@ -32,9 +32,9 @@
 
 -callback behaviours() -> [behaviour()].
 
--callback behaviour_function(agent()) -> behaviour().
+-callback behaviour(agent()) -> behaviour().
 
--callback meeting_function({behaviour(), [agent()]}) -> [agent()].
+-callback meeting({behaviour(), [agent()]}) -> [agent()].
 
 %%%===================================================================
 %%% API functions
@@ -115,7 +115,7 @@ behaviour(Mod, Agent) ->
     MP = mas_config:get_env(migration_probability),
     case rand:uniform() of
         R when R < MP  -> migration;
-        R when R >= MP -> Mod:behaviour_function(Agent)
+        R when R >= MP -> Mod:behaviour(Agent)
     end.
 
 %%--------------------------------------------------------------------
@@ -136,7 +136,7 @@ process_arenas(Mod, Arenas) ->
 apply_meetings(_Mod, {migration, Agents}) ->
     [mas_world:migrate_agent(Agent) || Agent <- Agents], [];
 apply_meetings(Mod, Arena) ->
-    Mod:meeting_function(Arena).
+    Mod:meeting(Arena).
 
 %%--------------------------------------------------------------------
 %% @private
