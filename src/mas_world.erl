@@ -10,7 +10,8 @@
 
 %% API
 -export([start_link/0,
-         migrate_agent/1]).
+         migrate_agent/1,
+         get_agents/0]).
 
 %% Server callbacks
 -export([init/1,
@@ -31,6 +32,9 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+get_agents() ->
+    gen_server:call(?SERVER, get_agents).
+
 migrate_agent(Agent) ->
     gen_server:cast(?SERVER, {migrate_agent, Agent, self()}).
 
@@ -42,12 +46,14 @@ init(_Args) ->
     self() ! spawn_populations,
     {ok, #state{}}.
 
+handle_call(get_agents, _From, State) ->
+    Results = gather_agents(State),
+    {reply, {results, Results}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
 handle_cast({migrate_agent, Agent, From}, State) ->
-    Populations = [P || P <- State#state.populations, P =/= From],
-    Destination = mas_utils:sample(Populations),
+    Destination = calculate_destination(From, State),
     mas_population:add_agent(Destination, Agent),
     {noreply, State};
 handle_cast(_Msg, State) ->
@@ -72,3 +78,15 @@ code_change(_OldVsn, State, _Extra) ->
 spawn_populations() ->
     Count = mas_config:get_env(populations_count),
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
+
+calculate_destination(From, #state{populations=Populations}) ->
+    Destinations = [P || P <- Populations, P =/= From],
+    mas_utils:sample(Destinations).
+
+gather_agents(#state{populations=Populations}) ->
+    Results = [gather_population(Population) || Population <- Populations],
+    lists:flatten(Results).
+
+gather_population(Population) ->
+    {agents, Agents} = mas_population:get_agents(Population),
+    Agents.

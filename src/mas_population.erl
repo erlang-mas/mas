@@ -9,7 +9,9 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, add_agent/2]).
+-export([start_link/0,
+         add_agent/2,
+         get_agents/1]).
 
 %% Server callbacks
 -export([init/1,
@@ -44,6 +46,9 @@
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
+get_agents(Pid) ->
+    gen_server:call(Pid, get_agents).
+
 add_agent(Pid, Agent) ->
     gen_server:cast(Pid, {add_agent, Agent}).
 
@@ -58,6 +63,8 @@ init(_Args) ->
     {ok, #state{module=Mod,
                 agents=InitialAgents}}.
 
+handle_call(get_agents, _From, State) ->
+    {reply, {agents, State#state.agents}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 

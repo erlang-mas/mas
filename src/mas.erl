@@ -10,13 +10,24 @@
 -behaviour(application).
 -behaviour(supervisor).
 
+%% API
+-export([get_results/0]).
+
 %% Application callbacks
--export([start/2, stop/1]).
+-export([start/2,
+         stop/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
+
+%%==============================================================================
+%% API functions
+%%==============================================================================
+
+get_results() ->
+    mas_world:get_agents().
 
 %%==============================================================================
 %% Application callbacks
