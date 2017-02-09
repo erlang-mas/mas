@@ -9,7 +9,7 @@
    ]},
   {env,
    [
-    {islands, 12},
+    {populations_count, 12},
     {population_size, 100},
     {population, mas_test_population},
     {migration_probability, 0.05}

@@ -30,9 +30,15 @@ stop(_State) ->
 %% Supervisor callbacks
 %%====================================================================
 
-init([]) ->
-    ChildSpecs = [child_spec(mas_world)],
-    {ok, {{one_for_all, 0, 1}, ChildSpecs}}.
+init(_Args) ->
+    SupFlags = #{strategy  => one_for_all,
+                 intensity => 0,
+                 period    => 1},
+    ChildSpecs = [
+        child_spec(mas_population_sup, supervisor),
+        child_spec(mas_world, worker)
+    ],
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%====================================================================
 %% Internal functions
@@ -41,5 +47,10 @@ init([]) ->
 %%--------------------------------------------------------------------
 %% @private
 %%--------------------------------------------------------------------
-child_spec(M) ->
-    {M, {M, start_link, []}, permanent, brutal_kill, worker, [M]}.
+child_spec(M, Type) ->
+    #{id       => M,
+      start    => {M, start_link, []},
+      restart  => temporary,
+      shutdown => 1000,
+      type     => Type,
+      modules  => [M]}.

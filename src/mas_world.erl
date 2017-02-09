@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%% @doc Spawns multiple MAS populations and handles agent migrations
+%% @doc Spawns multiple populations and handles agent migrations
 %% between them.
 %% @end
 %%%-------------------------------------------------------------------
@@ -9,7 +9,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, migrate_agent/1]).
+-export([start_link/0,
+         migrate_agent/1]).
 
 %% Server callbacks
 -export([init/1,
@@ -23,27 +24,28 @@
 
 -record(state, {populations :: [pid()]}).
 
-%%====================================================================
-%% API functions
-%%====================================================================
+%%%===================================================================
+%%% API functions
+%%%===================================================================
 
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 migrate_agent(Agent) ->
-    gen_server:cast(?SERVER, {migrate, Agent, self()}).
+    gen_server:cast(?SERVER, {migrate_agent, Agent, self()}).
 
-%%====================================================================
-%% Server callbacks
-%%====================================================================
+%%%===================================================================
+%%% Server callbacks
+%%%===================================================================
 
-init([]) ->
-    {ok, #state{populations=spawn_populations()}}.
+init(_Args) ->
+    self() ! spawn_populations,
+    {ok, #state{}}.
 
 handle_call(_Request, _From, State) ->
-    {reply, undef, State}.
+    {reply, ignored, State}.
 
-handle_cast({migrate, Agent, From}, State) ->
+handle_cast({migrate_agent, Agent, From}, State) ->
     Populations = [P || P <- State#state.populations, P =/= From],
     Destination = mas_utils:sample(Populations),
     mas_population:add_agent(Destination, Agent),
@@ -51,6 +53,10 @@ handle_cast({migrate, Agent, From}, State) ->
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
+
+handle_info(spawn_populations, State) ->
+    Populations = spawn_populations(),
+    {noreply, State#state{populations=Populations}};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -61,11 +67,10 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%====================================================================
-%% Internal functions
-%%====================================================================
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 
 spawn_populations() ->
-    Islands = mas_config:get_env(islands),
-    OkPids = [mas_population:start_link() || _ <- lists:seq(1, Islands)],
-    [Pid || {_, Pid} <- OkPids].
+    Count = mas_config:get_env(populations_count),
+    [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
