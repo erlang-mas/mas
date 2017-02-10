@@ -105,7 +105,7 @@ process_population(State) ->
     NewAgents = normalize(ProcessedArenas),
     State#state{agents = NewAgents}.
 
-determine_behaviours(State#state{agents = Agents}) ->
+determine_behaviours(State = #state{agents = Agents}) ->
     [{behaviour(Agent, State), Agent} || Agent <- Agents].
 
 behaviour(Agent, #state{module = Mod, migration_probability = MP}) ->
