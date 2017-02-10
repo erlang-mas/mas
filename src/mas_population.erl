@@ -21,12 +21,14 @@
          terminate/2,
          code_change/3]).
 
--type agent()     :: any().
--type behaviour() :: atom().
+-type agent()             :: any().
+-type behaviour()         :: atom().
+-type metrics_counter()   :: dict:dict(term(), integer()).
 
 -record(state, {agents                :: [agent()],
                 module                :: module(),
-                migration_probability :: float()}).
+                migration_probability :: float(),
+                behaviours_counter    :: metrics_counter()}).
 
 %%==============================================================================
 %% Behaviour
@@ -59,12 +61,12 @@ add_agent(Pid, Agent) ->
 
 init(_Args) ->
     Mod = mas_config:get_env(population),
-    InitialAgents = generate_population(Mod),
-    MP = mas_config:get_env(migration_probability),
     self() ! process_population,
-    {ok, #state{module                = Mod,
-                agents                = InitialAgents,
-                migration_probability = MP}}.
+    {ok, #state{
+            module                = Mod,
+            agents                = generate_population(Mod),
+            migration_probability = mas_config:get_env(migration_probability),
+            behaviours_counter    = mas_counter:new(behaviours(Mod))}}.
 
 handle_call(get_agents, _From, State) ->
     {reply, {agents, State#state.agents}, State};
@@ -98,14 +100,21 @@ generate_population(Mod) ->
     PopulationSize = mas_config:get_env(population_size),
     [Mod:initial_agent() || _ <- lists:seq(1, PopulationSize)].
 
-process_population(State) ->
-    TaggedAgents = determine_behaviours(State),
+process_population(State = #state{behaviours_counter = Counter}) ->
+    TaggedAgents = tag_agents(State),
+
     Arenas = form_arenas(TaggedAgents),
     ProcessedArenas = process_arenas(Arenas, State),
-    NewAgents = normalize(ProcessedArenas),
-    State#state{agents = NewAgents}.
 
-determine_behaviours(State = #state{agents = Agents}) ->
+    NewAgents = normalize(ProcessedArenas),
+
+    Metrics = build_metrics(Arenas),
+    NewCounter = mas_counter:update(Metrics, Counter),
+
+    State#state{agents = NewAgents,
+                behaviours_counter = NewCounter}.
+
+tag_agents(State = #state{agents = Agents}) ->
     [{behaviour(Agent, State), Agent} || Agent <- Agents].
 
 behaviour(Agent, #state{module = Mod, migration_probability = MP}) ->
@@ -113,6 +122,9 @@ behaviour(Agent, #state{module = Mod, migration_probability = MP}) ->
         R when R < MP  -> migration;
         R when R >= MP -> Mod:behaviour(Agent)
     end.
+
+behaviours(Mod) ->
+    [migration] ++ Mod:behaviours().
 
 form_arenas(Agents) ->
     mas_utils:group_by(Agents).
@@ -127,3 +139,6 @@ apply_meetings(Mod, Arena) ->
 
 normalize(Arenas) ->
     mas_utils:shuffle(lists:flatten(Arenas)).
+
+build_metrics(Arenas) ->
+    [{Behaviour, length(Agents)} || {Behaviour, Agents} <- Arenas].
