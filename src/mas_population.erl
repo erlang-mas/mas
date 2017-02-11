@@ -27,6 +27,7 @@
 -record(state, {agents                :: [agent()],
                 module                :: module(),
                 migration_probability :: float(),
+                write_interval        :: integer(),
                 behaviours_counter    :: metrics_counter()}).
 
 %%%=============================================================================
@@ -63,11 +64,14 @@ add_agent(Pid, Agent) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     Mod = mas_config:get_env(population),
+    WriteInterval = mas_config:get_env(write_interval),
+    schedule_metrics_write(WriteInterval),
     self() ! process_population,
     {ok, #state{
             module                = Mod,
             agents                = generate_population(Mod),
             migration_probability = mas_config:get_env(migration_probability),
+            write_interval        = WriteInterval,
             behaviours_counter    = mas_counter:new(behaviours(Mod))}}.
 
 %%------------------------------------------------------------------------------
@@ -94,6 +98,12 @@ handle_info(process_population, State) ->
     NewState = process_population(State),
     self() ! process_population,
     {noreply, NewState};
+handle_info(write_metrics, State = #state{write_interval     = WriteInterval,
+                                          behaviours_counter = Counter}) ->
+    % @todo update metrics
+    io:format("(~p) ~p~n", [self(), Counter]),
+    schedule_metrics_write(WriteInterval),
+    {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -183,6 +193,12 @@ apply_meetings(Arena, Mod) ->
 %%------------------------------------------------------------------------------
 normalize(Arenas) ->
     mas_utils:shuffle(lists:flatten(Arenas)).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+schedule_metrics_write(WriteInterval) ->
+    erlang:send_after(WriteInterval, self(), write_metrics).
 
 %%------------------------------------------------------------------------------
 %% @private

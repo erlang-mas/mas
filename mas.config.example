@@ -4,7 +4,8 @@
    {populations_count, 12},
    {population_size, 100},
    {population, mas_test_population},
-   {topology, mesh}
+   {topology, mesh},
+   {write_interval, 1000}
   ]
  }
 ].

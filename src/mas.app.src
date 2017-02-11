@@ -13,7 +13,8 @@
     {population_size, 100},
     {population, mas_test_population},
     {topology, mesh},
-    {migration_probability, 0.05}
+    {migration_probability, 0.05},
+    {write_interval, 1000}
    ]
   },
   {modules, []},

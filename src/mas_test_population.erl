@@ -14,7 +14,11 @@ initial_agent() -> #agent{id=rand:uniform(100), energy=100}.
 
 behaviours() -> [fight, reproduce].
 
-behaviour(Agent) -> fight.
+behaviour(Agent) ->
+    case rand:uniform() of
+        R when R < 0.3  -> fight;
+        R when R >= 0.3 -> reproduce
+    end.
 
 meeting({fight, Agents}) ->
     Agents;
