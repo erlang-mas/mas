@@ -36,6 +36,7 @@ get_results() ->
 %% @private
 %%------------------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
+    application:ensure_all_started(exometer),
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%------------------------------------------------------------------------------
