@@ -168,14 +168,14 @@ form_arenas(Agents) ->
 %% @private
 %%------------------------------------------------------------------------------
 process_arenas(Arenas, #state{module = Mod}) ->
-    [apply_meetings(Mod, Arena) || Arena <- Arenas].
+    [apply_meetings(Arena, Mod) || Arena <- Arenas].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-apply_meetings(_Mod, {migration, Agents}) ->
+apply_meetings({migration, Agents}, _Mod) ->
     [mas_world:migrate_agent(Agent) || Agent <- Agents], [];
-apply_meetings(Mod, Arena) ->
+apply_meetings(Arena, Mod) ->
     Mod:meeting(Arena).
 
 %%------------------------------------------------------------------------------

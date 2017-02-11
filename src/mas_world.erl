@@ -48,15 +48,16 @@ migrate_agent(Agent) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     self() ! spawn_populations,
-    {ok, #state{populations       = [],
-                populations_count = mas_config:get_env(populations_count),
-                topology          = mas_config:get_env(topology)}}.
+    {ok, #state{
+            populations       = [],
+            populations_count = mas_config:get_env(populations_count),
+            topology          = mas_config:get_env(topology)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 handle_call(get_agents, _From, State) ->
-    Results = gather_agents(State),
+    Results = collect_agents(State),
     {reply, {results, Results}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
@@ -112,7 +113,7 @@ calculate_destination(From, #state{populations = Populations,
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-gather_agents(#state{populations = Populations}) ->
+collect_agents(#state{populations = Populations}) ->
     Results = [gather_population(Population) || Population <- Populations],
     lists:flatten(Results).
 
