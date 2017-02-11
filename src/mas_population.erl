@@ -22,12 +22,14 @@
 
 -type agent()             :: any().
 -type behaviour()         :: atom().
+-type metric()            :: [any()].
 -type metrics_counter()   :: dict:dict(term(), integer()).
 
 -record(state, {agents                :: [agent()],
                 module                :: module(),
                 migration_probability :: float(),
                 write_interval        :: integer(),
+                metrics               :: [metric()],
                 behaviours_counter    :: metrics_counter()}).
 
 %%%=============================================================================
@@ -64,15 +66,23 @@ add_agent(Pid, Agent) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     Mod = mas_config:get_env(population),
+    Behaviours = behaviours(Mod),
+
+    MigrationProbability = mas_config:get_env(migration_probability),
     WriteInterval = mas_config:get_env(write_interval),
-    schedule_metrics_write(WriteInterval),
+
+    Metrics = setup_metrics(Behaviours, WriteInterval),
+    schedule_metrics_update(WriteInterval),
+
     self() ! process_population,
+
     {ok, #state{
             module                = Mod,
             agents                = generate_population(Mod),
-            migration_probability = mas_config:get_env(migration_probability),
+            migration_probability = MigrationProbability,
             write_interval        = WriteInterval,
-            behaviours_counter    = mas_counter:new(behaviours(Mod))}}.
+            metrics               = Metrics,
+            behaviours_counter    = mas_counter:new(Behaviours)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -98,11 +108,9 @@ handle_info(process_population, State) ->
     NewState = process_population(State),
     self() ! process_population,
     {noreply, NewState};
-handle_info(write_metrics, State = #state{write_interval     = WriteInterval,
-                                          behaviours_counter = Counter}) ->
-    % @todo update metrics
-    io:format("(~p) ~p~n", [self(), Counter]),
-    schedule_metrics_write(WriteInterval),
+handle_info(update_metrics, State = #state{write_interval = WriteInterval}) ->
+    update_metrics(State),
+    schedule_metrics_update(WriteInterval),
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -110,8 +118,8 @@ handle_info(_Info, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, State) ->
+    delete_metrics(State).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -141,11 +149,10 @@ process_population(State = #state{behaviours_counter = Counter}) ->
 
     NewAgents = normalize(ProcessedArenas),
 
-    Metrics = build_metrics(Arenas),
-    NewCounter = mas_counter:update(Metrics, Counter),
+    BehaviourCounts = count_behaviours(Arenas),
+    NewCounter = mas_counter:update(BehaviourCounts, Counter),
 
-    State#state{agents = NewAgents,
-                behaviours_counter = NewCounter}.
+    State#state{agents = NewAgents, behaviours_counter = NewCounter}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -197,11 +204,40 @@ normalize(Arenas) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-schedule_metrics_write(WriteInterval) ->
-    erlang:send_after(WriteInterval, self(), write_metrics).
+count_behaviours(Arenas) ->
+    [{Behaviour, length(Agents)} || {Behaviour, Agents} <- Arenas].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-build_metrics(Arenas) ->
-    [{Behaviour, length(Agents)} || {Behaviour, Agents} <- Arenas].
+setup_metrics(Behaviours, WriteInterval) ->
+    [setup_metric(Behaviour, WriteInterval) || Behaviour <- Behaviours].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+setup_metric(MetricName, WriteInterval) ->
+    Metric = [self(), MetricName],
+    exometer:new(Metric, counter),
+    exometer_report:subscribe(mas_reporter, Metric, value, WriteInterval),
+    Metric.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+schedule_metrics_update(WriteInterval) ->
+    erlang:send_after(WriteInterval, self(), update_metrics).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+update_metrics(#state{metrics = Metrics, behaviours_counter = Counter}) ->
+    lists:foreach(fun(Metric = [_Pid, Behaviour]) ->
+                      exometer:update(Metric, dict:fetch(Behaviour, Counter))
+                  end, Metrics).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+delete_metrics(#state{metrics = Metrics}) ->
+    lists:foreach(fun(Metric) -> exometer:delete(Metric) end, Metrics).

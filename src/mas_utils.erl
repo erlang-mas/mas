@@ -6,7 +6,11 @@
 -module(mas_utils).
 
 %% API
--export([group_by/1, shuffle/1, sample/1]).
+-export([group_by/1,
+         shuffle/1,
+         sample/1,
+         timestamp/0,
+         to_string/1]).
 
 %%%=============================================================================
 %%% API functions
@@ -38,3 +42,18 @@ shuffle(L) ->
 sample(L) ->
     Index = rand:uniform(length(L)),
     lists:nth(Index, L).
+
+%%------------------------------------------------------------------------------
+%% @doc Returns current OS system time in miliseconds.
+%% @end
+%%------------------------------------------------------------------------------
+timestamp() ->
+    {Mega, Sec, Micro} = os:timestamp(),
+    (Mega * 1000000 + Sec) * 1000 + round(Micro / 1000).
+
+%%------------------------------------------------------------------------------
+%% @doc Converts term into string.
+%% @end
+%%------------------------------------------------------------------------------
+to_string(T) ->
+    io_lib:format("~p", [T]).

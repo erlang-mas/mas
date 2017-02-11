@@ -10,7 +10,7 @@
 -behaviour(supervisor).
 
 %% API
--export([get_results/0]).
+-export([start/0, get_results/0]).
 
 %% Application callbacks
 -export([start/2,
@@ -25,6 +25,10 @@
 %%% API functions
 %%%=============================================================================
 
+start() ->
+    application:ensure_all_started(exometer_core),
+    application:start(mas).
+
 get_results() ->
     mas_world:get_agents().
 
@@ -36,7 +40,7 @@ get_results() ->
 %% @private
 %%------------------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
-    application:ensure_all_started(exometer),
+    setup_exometer(),
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%------------------------------------------------------------------------------
@@ -65,6 +69,12 @@ init(_Args) ->
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+setup_exometer() ->
+    mas_reporter:register([{root_dir, mas_config:get_env(logs_dir)}]).
 
 %%------------------------------------------------------------------------------
 %% @private
