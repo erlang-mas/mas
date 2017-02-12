@@ -114,8 +114,8 @@ calculate_destination(From, #state{populations = Populations,
 %% @private
 %%------------------------------------------------------------------------------
 collect_agents(#state{populations = Populations}) ->
-    Results = [gather_population(Population) || Population <- Populations],
-    lists:flatten(Results).
+    Agents = [gather_population(Population) || Population <- Populations],
+    lists:flatten(Agents).
 
 %%------------------------------------------------------------------------------
 %% @private

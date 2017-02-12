@@ -191,7 +191,7 @@ process_arenas(Arenas, #state{module = Mod}) ->
 %% @private
 %%------------------------------------------------------------------------------
 apply_meetings({migration, Agents}, _Mod) ->
-    [mas_world:migrate_agent(Agent) || Agent <- Agents], [];
+    lists:foreach(fun(Agent) -> mas_world:migrate_agent(Agent) end, Agents), [];
 apply_meetings(Arena, Mod) ->
     Mod:meeting(Arena).
 
