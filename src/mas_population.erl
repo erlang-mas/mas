@@ -65,6 +65,8 @@ add_agent(Pid, Agent) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
+    process_flag(trap_exit, true),
+
     Mod = mas_config:get_env(population),
     Behaviours = behaviours(Mod),
 
@@ -118,8 +120,8 @@ handle_info(_Info, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-terminate(_Reason, State) ->
-    delete_metrics(State).
+terminate(_Reason, #state{metrics = Metrics}) ->
+    lists:foreach(fun unsubscribe_metric/1, Metrics).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -211,13 +213,13 @@ count_behaviours(Arenas) ->
 %% @private
 %%------------------------------------------------------------------------------
 setup_metrics(Behaviours, WriteInterval) ->
-    [setup_metric(Behaviour, WriteInterval) || Behaviour <- Behaviours].
+    [subscribe_metric(Behaviour, WriteInterval) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-setup_metric(MetricName, WriteInterval) ->
-    Metric = [self(), MetricName],
+subscribe_metric(Name, WriteInterval) ->
+    Metric = [self(), Name],
     exometer:new(Metric, counter),
     exometer_report:subscribe(mas_reporter, Metric, value, WriteInterval),
     Metric.
@@ -239,5 +241,6 @@ update_metrics(#state{metrics = Metrics, behaviours_counter = Counter}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-delete_metrics(#state{metrics = Metrics}) ->
-    lists:foreach(fun(Metric) -> exometer:delete(Metric) end, Metrics).
+unsubscribe_metric(Metric) ->
+    exometer_report:unsubscribe_all(mas_reporter, Metric),
+    exometer:delete(Metric).
