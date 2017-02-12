@@ -1,7 +1,12 @@
 {application, mas,
  [{description, "Multi agent system engine"},
   {vsn, "0.1.0"},
-  {registered, []},
+  {registered,
+    [
+     mas,
+     mas_world,
+     mas_population_sup
+    ]},
   {mod, { mas, []}},
   {applications,
    [kernel,
