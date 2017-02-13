@@ -74,7 +74,7 @@ exometer_unsubscribe(Metric, _DataPoint, _Extra,
 exometer_report(Metric, _DataPoint, _Extra, Value,
                 State = #state{files = Files})  ->
     File = dict:fetch(Metric, Files),
-    write_metric(Metric, Value, File),
+    write_metric_entry(Metric, Value, File),
     {ok, State}.
 
 %%------------------------------------------------------------------------------
@@ -129,20 +129,11 @@ create_base_dir(RootDir) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-create_file([Path, Component | Components]) ->
-    NormalizedComponent = normalize_path_component(Component),
-    NewPath = filename:join([Path, NormalizedComponent]),
-    create_file([NewPath | Components]);
-create_file([Path | []]) ->
+create_file(PathComponents) ->
+    Path = filename:join(stringify_components(PathComponents)),
     filelib:ensure_dir(Path),
     {ok, File} = file:open(Path, [append, delayed_write, raw]),
     File.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-normalize_path_component(Component) ->
-    mas_utils:to_string(Component).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -153,6 +144,13 @@ close_file(File) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-write_metric(Metric, Value, File) ->
-    Data = io_lib:fwrite("~p;~w~n", [Metric, Value]),
-    file:write(File, Data).
+write_metric_entry(Metric, Value, File) ->
+    Components = stringify_components(Metric ++ [Value]),
+    Entry = string:join(Components, ";"),
+    file:write(File, io_lib:fwrite("~s~n", [Entry])).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+stringify_components(Components) ->
+    [mas_utils:to_string(Component) || Component <- Components].

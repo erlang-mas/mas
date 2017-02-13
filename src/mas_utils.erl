@@ -65,8 +65,10 @@ timestamp() ->
 %% @doc Converts term into string.
 %% @end
 %%------------------------------------------------------------------------------
-to_string(T) ->
-    io_lib:format("~p", [T]).
+to_string(X) when is_list(X) ->
+    X;
+to_string(X) ->
+    io_lib:format("~p", [X]).
 
 %%%=============================================================================
 %%% Internal functions
