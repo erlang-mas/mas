@@ -168,12 +168,12 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{module = Mod, migration_probability = MP,
+behaviour(Agent, #state{module = Mod, migration_probability       = MP,
                                       world_migration_probability = WMP}) ->
     case rand:uniform() of
-        R when R < MP        -> migration;
-        R when R < MP + WMP  -> world_migration;
-        R when R >= MP + WMP -> Mod:behaviour(Agent)
+        R when R < MP       -> migration;
+        R when R < MP + WMP -> world_migration;
+        _                   -> Mod:behaviour(Agent)
     end.
 
 %%------------------------------------------------------------------------------
@@ -234,6 +234,13 @@ subscribe_metric(Name, WriteInterval) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+unsubscribe_metric(Metric) ->
+    exometer_report:unsubscribe_all(mas_reporter, Metric),
+    exometer:delete(Metric).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
 schedule_metrics_update(WriteInterval) ->
     erlang:send_after(WriteInterval, self(), update_metrics).
 
@@ -244,10 +251,3 @@ update_metrics(#state{metrics = Metrics, behaviours_counter = Counter}) ->
     lists:foreach(fun(Metric = [_Pid, Behaviour]) ->
                       exometer:update(Metric, dict:fetch(Behaviour, Counter))
                   end, Metrics).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-unsubscribe_metric(Metric) ->
-    exometer_report:unsubscribe_all(mas_reporter, Metric),
-    exometer:delete(Metric).

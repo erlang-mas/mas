@@ -100,7 +100,7 @@ do_migrate_agents(Agents, From, #state{nodes = Nodes, topology = Topology}) ->
     case mas_topology:destination(Topology, From, Nodes) of
         {ok, Destination} ->
             spawn(Destination, mas_world, migrate_agents, [Agents]);
-        {error, no_destination} ->
+        no_destination ->
             ok
     end.
 

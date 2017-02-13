@@ -23,7 +23,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations       :: [pid()],
+-record(state, {populations = []  :: [pid()],
                 populations_count :: integer(),
                 topology          :: atom()}).
 
@@ -52,17 +52,14 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     self() ! spawn_populations,
-    {ok, #state{
-            populations       = [],
-            populations_count = mas_config:get_env(populations_count),
-            topology          = mas_config:get_env(topology)}}.
+    {ok, #state{topology = mas_config:get_env(topology)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 handle_call(get_agents, _From, State) ->
-    Results = collect_agents(State),
-    {reply, {results, Results}, State};
+    Agents = collect_agents(State),
+    {reply, {agents, Agents}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
@@ -79,7 +76,7 @@ handle_cast(_Msg, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_info(spawn_populations, State) ->
-    Populations = spawn_populations(State),
+    Populations = spawn_populations(),
     {noreply, State#state{populations = Populations}};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -103,7 +100,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-spawn_populations(#state{populations_count = Count}) ->
+spawn_populations() ->
+    Count = mas_config:get_env(populations_count),
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
 
 %%------------------------------------------------------------------------------
@@ -114,7 +112,7 @@ do_migrate_agent(Agent, From, #state{populations = Populations,
     case mas_topology:destination(Topology, From, Populations) of
         {ok, Destination} ->
             mas_population:add_agent(Destination, Agent);
-        {error, no_destination} ->
+        no_destination ->
             ok
     end.
 
@@ -122,12 +120,12 @@ do_migrate_agent(Agent, From, #state{populations = Populations,
 %% @private
 %%------------------------------------------------------------------------------
 collect_agents(#state{populations = Populations}) ->
-    Agents = [gather_population(Population) || Population <- Populations],
+    Agents = [collect_population(Population) || Population <- Populations],
     lists:flatten(Agents).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-gather_population(Population) ->
+collect_population(Population) ->
     {agents, Agents} = mas_population:get_agents(Population),
     Agents.
