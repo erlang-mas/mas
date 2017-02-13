@@ -62,7 +62,8 @@ init(_Args) ->
                  period    => 1},
     ChildSpecs = [
         child_spec(mas_population_sup, supervisor),
-        child_spec(mas_world, worker)
+        child_spec(mas_world, worker),
+        child_spec(mas_broker, worker)
     ],
     {ok, {SupFlags, ChildSpecs}}.
 

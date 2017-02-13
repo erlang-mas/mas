@@ -1,17 +1,15 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Spawns multiple populations of agents. Handles agent migrations.
-%%% @end
+%%% @doc Monitores nodes. Handles agent migrations between nodes.
+%% @end
 %%%-----------------------------------------------------------------------------
 
--module(mas_world).
+-module(mas_broker).
 
 -behaviour(gen_server).
 
 %% API
 -export([start_link/0,
-         migrate_agent/1,
-         migrate_agents/1,
-         get_agents/0]).
+         migrate_agents/1]).
 
 %% Server callbacks
 -export([init/1,
@@ -23,9 +21,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations       :: [pid()],
-                populations_count :: integer(),
-                topology          :: atom()}).
+-record(state, {nodes    = []   :: [node()],
+                topology = mesh :: atom()}).
 
 %%%=============================================================================
 %%% API functions
@@ -34,14 +31,8 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-get_agents() ->
-    gen_server:call(?SERVER, get_agents).
-
-migrate_agent(Agent) ->
-    gen_server:cast(?SERVER, {migrate_agent, Agent, self()}).
-
 migrate_agents(Agents) ->
-    lists:foreach(fun migrate_agent/1, Agents).
+    gen_server:cast(?SERVER, {migrate_agents, Agents, node()}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -51,26 +42,21 @@ migrate_agents(Agents) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    self() ! spawn_populations,
-    {ok, #state{
-            populations       = [],
-            populations_count = mas_config:get_env(populations_count),
-            topology          = mas_config:get_env(topology)}}.
+    net_kernel:monitor_nodes(true),
+    {ok, #state{nodes    = discover_nodes(),
+                topology = mas_config:get_env(nodes_topology)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_call(get_agents, _From, State) ->
-    Results = collect_agents(State),
-    {reply, {results, Results}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agent, Agent, From}, State) ->
-    do_migrate_agent(Agent, From, State),
+handle_cast({migrate_agents, Agents, From}, State) ->
+    do_migrate_agents(Agents, From, State),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -78,9 +64,10 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State) ->
-    Populations = spawn_populations(State),
-    {noreply, State#state{populations = Populations}};
+handle_info({nodeup, Node}, State) ->
+    {noreply, add_node(Node, State)};
+handle_info({nodedown, Node}, State) ->
+    {noreply, remove_node(Node, State)};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -103,17 +90,16 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-spawn_populations(#state{populations_count = Count}) ->
-    [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
+discover_nodes() ->
+    net_adm:world().
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_migrate_agent(Agent, From, #state{populations = Populations,
-                                     topology    = Topology}) ->
-    case mas_topology:destination(Topology, From, Populations) of
+do_migrate_agents(Agents, From, #state{nodes = Nodes, topology = Topology}) ->
+    case mas_topology:destination(Topology, From, Nodes) of
         {ok, Destination} ->
-            mas_population:add_agent(Destination, Agent);
+            spawn(Destination, mas_world, migrate_agents, [Agents]);
         {error, no_destination} ->
             ok
     end.
@@ -121,13 +107,11 @@ do_migrate_agent(Agent, From, #state{populations = Populations,
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-collect_agents(#state{populations = Populations}) ->
-    Agents = [gather_population(Population) || Population <- Populations],
-    lists:flatten(Agents).
+add_node(Node, State = #state{nodes = Nodes}) ->
+    State#state{nodes = lists:usort([Node | Nodes])}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-gather_population(Population) ->
-    {agents, Agents} = mas_population:get_agents(Population),
-    Agents.
+remove_node(Node, State = #state{nodes = Nodes}) ->
+    State#state{nodes = lists:usort(Nodes -- [Node])}.

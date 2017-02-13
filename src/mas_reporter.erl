@@ -33,8 +33,8 @@
 %%% API functions
 %%%=============================================================================
 
-register(Options) ->
-    exometer_report:add_reporter(?MODULE, Options).
+register(Args) ->
+    exometer_report:add_reporter(?MODULE, Args).
 
 %%%=============================================================================
 %%% Exometer report callbacks
@@ -43,8 +43,8 @@ register(Options) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-exometer_init(Options) ->
-    RootDir = proplists:get_value(root_dir, Options),
+exometer_init(Args) ->
+    RootDir = proplists:get_value(root_dir, Args),
     BaseDir = create_base_dir(RootDir),
     {ok, #state{files    = dict:new(),
                 base_dir = BaseDir}}.

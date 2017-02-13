@@ -6,12 +6,14 @@
 -module(mas_topology).
 
 %% API
--export([calculate_destination/3]).
+-export([destination/3]).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
-calculate_destination(mesh, From, Nodes) ->
+destination(_Topology, _From, Nodes) when length(Nodes) < 2 ->
+    {error, no_destination};
+destination(mesh, From, Nodes) ->
     Destinations = [Node || Node <- Nodes, Node =/= From],
-    mas_utils:sample(Destinations).
+    {ok, mas_utils:sample(Destinations)}.

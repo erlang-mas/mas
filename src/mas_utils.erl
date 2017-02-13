@@ -39,6 +39,8 @@ shuffle(L) ->
 %% @doc Picks random element from the list.
 %% @end
 %%------------------------------------------------------------------------------
+sample([]) ->
+    ok;
 sample(L) ->
     Index = rand:uniform(length(L)),
     lists:nth(Index, L).

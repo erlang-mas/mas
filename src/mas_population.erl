@@ -25,12 +25,13 @@
 -type metric()            :: [any()].
 -type metrics_counter()   :: dict:dict(term(), integer()).
 
--record(state, {agents                :: [agent()],
-                module                :: module(),
-                migration_probability :: float(),
-                write_interval        :: integer(),
-                metrics               :: [metric()],
-                behaviours_counter    :: metrics_counter()}).
+-record(state, {agents                      :: [agent()],
+                module                      :: module(),
+                migration_probability       :: float(),
+                world_migration_probability :: float(),
+                write_interval              :: integer(),
+                metrics                     :: [metric()],
+                behaviours_counter          :: metrics_counter()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -71,6 +72,7 @@ init(_Args) ->
     Behaviours = behaviours(Mod),
 
     MigrationProbability = mas_config:get_env(migration_probability),
+    WorldMigrationProbability = mas_config:get_env(world_migration_probability),
     WriteInterval = mas_config:get_env(write_interval),
 
     Metrics = setup_metrics(Behaviours, WriteInterval),
@@ -79,12 +81,13 @@ init(_Args) ->
     self() ! process_population,
 
     {ok, #state{
-            module                = Mod,
-            agents                = generate_population(Mod),
-            migration_probability = MigrationProbability,
-            write_interval        = WriteInterval,
-            metrics               = Metrics,
-            behaviours_counter    = mas_counter:new(Behaviours)}}.
+            module                      = Mod,
+            agents                      = generate_population(Mod),
+            migration_probability       = MigrationProbability,
+            world_migration_probability = WorldMigrationProbability,
+            write_interval              = WriteInterval,
+            metrics                     = Metrics,
+            behaviours_counter          = mas_counter:new(Behaviours)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -165,17 +168,19 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{module = Mod, migration_probability = MP}) ->
+behaviour(Agent, #state{module = Mod, migration_probability = MP,
+                                      world_migration_probability = WMP}) ->
     case rand:uniform() of
-        R when R < MP  -> migration;
-        R when R >= MP -> Mod:behaviour(Agent)
+        R when R < MP        -> migration;
+        R when R < MP + WMP  -> world_migration;
+        R when R >= MP + WMP -> Mod:behaviour(Agent)
     end.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 behaviours(Mod) ->
-    [migration] ++ Mod:behaviours().
+    [migration, world_migration] ++ Mod:behaviours().
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -193,7 +198,9 @@ process_arenas(Arenas, #state{module = Mod}) ->
 %% @private
 %%------------------------------------------------------------------------------
 apply_meetings({migration, Agents}, _Mod) ->
-    lists:foreach(fun(Agent) -> mas_world:migrate_agent(Agent) end, Agents), [];
+    mas_world:migrate_agents(Agents), [];
+apply_meetings({world_migration, Agents}, _Mod) ->
+    mas_broker:migrate_agents(Agents), [];
 apply_meetings(Arena, Mod) ->
     Mod:meeting(Arena).
 

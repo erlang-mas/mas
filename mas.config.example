@@ -5,8 +5,11 @@
    {population_size, 100},
    {population, mas_test_population},
    {topology, mesh},
+   {migration_probability, 0.05},
+   {world_migration_probability, 0.02},
+   {nodes_topology, mesh},
    {write_interval, 1000},
-   {logs_dir, "/logs/mas"}
+   {logs_dir, "/logs/mas"},
   ]
  }
 ].
