@@ -24,7 +24,6 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {populations = []  :: [pid()],
-                populations_count :: integer(),
                 topology          :: atom()}).
 
 %%%=============================================================================
