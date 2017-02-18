@@ -5,10 +5,12 @@
 
 -module(mas_world).
 
+-include("mas.hrl").
+
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
+-export([start_link/1,
          migrate_agent/1,
          migrate_agents/1,
          get_agents/0]).
@@ -24,14 +26,14 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {populations = []  :: [pid()],
-                topology          :: atom()}).
+                config            :: mas:config()}).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Config) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
 get_agents() ->
     gen_server:call(?SERVER, get_agents).
@@ -49,9 +51,9 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(_Args) ->
+init(Config) ->
     self() ! spawn_populations,
-    {ok, #state{topology = mas_config:get_env(topology)}}.
+    {ok, #state{config = Config}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -74,8 +76,8 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State) ->
-    Populations = spawn_populations(),
+handle_info(spawn_populations, State = #state{config = Config}) ->
+    Populations = spawn_populations(Config),
     {noreply, State#state{populations = Populations}};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -99,16 +101,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-spawn_populations() ->
-    Count = mas_config:get_env(populations_count),
+spawn_populations(#config{population_count = Count}) ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 do_migrate_agent(Agent, From, #state{populations = Populations,
-                                     topology    = Topology}) ->
-    case mas_topology:destination(Topology, From, Populations) of
+                                     config      = Config}) ->
+    case mas_topology:destination(Config#config.topology, From, Populations) of
         {ok, Destination} ->
             mas_population:add_agent(Destination, Agent);
         no_destination ->

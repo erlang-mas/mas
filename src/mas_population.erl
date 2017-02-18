@@ -5,10 +5,12 @@
 
 -module(mas_population).
 
+-include("mas.hrl").
+
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
+-export([start_link/1,
          add_agent/2,
          get_agents/1]).
 
@@ -25,15 +27,9 @@
 -type metric()            :: [any()].
 -type metrics_counter()   :: dict:dict(term(), integer()).
 
--record(config, {migration_probability      :: float(),
-                 node_migration_probability :: float(),
-                 write_interval             :: integer()}).
-
--type config() :: #config{}.
-
--record(state, {module             :: module(),
+-record(state, {behaviour          :: module(),
                 agents             :: [agent()],
-                config             :: config(),
+                config             :: mas:config(),
                 metrics            :: [metric()],
                 behaviours_counter :: metrics_counter()}).
 
@@ -53,8 +49,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link() ->
-    gen_server:start_link(?MODULE, [], []).
+start_link(Config) ->
+    gen_server:start_link(?MODULE, Config, []).
 
 get_agents(Pid) ->
     gen_server:call(Pid, get_agents).
@@ -69,10 +65,10 @@ add_agent(Pid, Agent) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(_Args) ->
+init(Config) ->
     process_flag(trap_exit, true),
-    State = init_state(),
-    schedule_metrics_update(State#state.config),
+    State = init_state(Config),
+    schedule_metrics_update(Config),
     self() ! process_population,
     {ok, State}.
 
@@ -126,13 +122,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init_state() ->
-    Mod = mas_config:get_env(population),
-    Config = fetch_config(),
+init_state(Config = #config{population_behaviour = Mod}) ->
     Behaviours = behaviours(Mod),
     #state{
-        module             = Mod,
-        agents             = generate_population(Mod),
+        behaviour          = Mod,
+        agents             = generate_population(Mod, Config),
         config             = Config,
         metrics            = setup_metrics(Behaviours, Config),
         behaviours_counter = mas_counter:new(Behaviours)
@@ -141,20 +135,7 @@ init_state() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-fetch_config() ->
-    MP  = mas_config:get_env(migration_probability),
-    NMP = mas_config:get_env(node_migration_probability),
-    #config{
-        migration_probability      = MP,
-        node_migration_probability = NMP,
-        write_interval             = mas_config:get_env(write_interval)
-    }.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-generate_population(Mod) ->
-    Size = mas_config:get_env(population_size),
+generate_population(Mod, #config{population_size = Size}) ->
     [Mod:initial_agent() || _ <- lists:seq(1, Size)].
 
 %%------------------------------------------------------------------------------
@@ -182,7 +163,7 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{module = Mod, config = Config}) ->
+behaviour(Agent, #state{behaviour = Mod, config = Config}) ->
     MP  = Config#config.migration_probability,
     NMP = Config#config.node_migration_probability,
     case rand:uniform() of
@@ -206,7 +187,7 @@ form_arenas(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-process_arenas(Arenas, #state{module = Mod}) ->
+process_arenas(Arenas, #state{behaviour = Mod}) ->
     [apply_meetings(Arena, Mod) || Arena <- Arenas].
 
 %%------------------------------------------------------------------------------

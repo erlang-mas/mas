@@ -6,6 +6,8 @@
 
 -module(mas).
 
+-include("mas.hrl").
+
 -behaviour(application).
 -behaviour(supervisor).
 
@@ -40,8 +42,9 @@ get_results() ->
 %% @private
 %%------------------------------------------------------------------------------
 start(_StartType, _StartArgs) ->
-    setup_exometer(),
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    Config = mas_config:fetch_all(),
+    setup_exometer(Config),
+    supervisor:start_link({local, ?SERVER}, ?MODULE, Config).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -56,14 +59,14 @@ stop(_State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(_Args) ->
+init(Config) ->
     SupFlags = #{strategy  => one_for_all,
                  intensity => 0,
                  period    => 1},
     ChildSpecs = [
-        child_spec(mas_population_sup, supervisor),
-        child_spec(mas_world, worker),
-        child_spec(mas_broker, worker)
+        child_spec(mas_population_sup, supervisor, Config),
+        child_spec(mas_world,          worker,     Config),
+        child_spec(mas_broker,         worker,     Config)
     ],
     {ok, {SupFlags, ChildSpecs}}.
 
@@ -74,16 +77,16 @@ init(_Args) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-setup_exometer() ->
-    mas_reporter:register([{root_dir, mas_config:get_env(logs_dir)}]).
+setup_exometer(#config{logs_dir = LogsDir}) ->
+    mas_reporter:register([{root_dir, LogsDir}]).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-child_spec(M, Type) ->
-    #{id       => M,
-      start    => {M, start_link, []},
+child_spec(Mod, Type, Args) ->
+    #{id       => Mod,
+      start    => {Mod, start_link, [Args]},
       restart  => temporary,
       shutdown => 1000,
       type     => Type,
-      modules  => [M]}.
+      modules  => [Mod]}.

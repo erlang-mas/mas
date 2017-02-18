@@ -8,7 +8,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0,
+-export([start_link/1,
          spawn_population/0]).
 
 %% Supervisor callbacks
@@ -20,8 +20,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+start_link(Config) ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, Config).
 
 spawn_population() ->
     {ok, Pid} = supervisor:start_child(?SERVER, []),
@@ -34,12 +34,12 @@ spawn_population() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(_Args) ->
+init(Config) ->
     SupFlags = #{strategy  => simple_one_for_one,
                  intensity => 0,
                  period    => 1},
     ChildSpecs = [#{id       => mas_population,
-                    start    => {mas_population, start_link, []},
+                    start    => {mas_population, start_link, [Config]},
                     restart  => temporary,
                     shutdown => 1000,
                     type     => worker,

@@ -1,9 +1,9 @@
 [
  {mas,
   [
-   {populations_count, 12},
+   {population_behaviour, mas_test_population},
+   {population_count, 12},
    {population_size, 100},
-   {population, mas_test_population},
    {topology, mesh},
    {migration_probability, 0.05},
    {node_migration_probability, 0.02},

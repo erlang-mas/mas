@@ -5,10 +5,12 @@
 
 -module(mas_broker).
 
+-include("mas.hrl").
+
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
+-export([start_link/1,
          migrate_agents/1]).
 
 %% Server callbacks
@@ -22,14 +24,14 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {nodes    = []   :: [node()],
-                topology = mesh :: atom()}).
+                config          :: mas:config()}).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Config) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
 migrate_agents(Agents) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, node()}).
@@ -41,10 +43,9 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(_Args) ->
+init(Config) ->
     net_kernel:monitor_nodes(true),
-    {ok, #state{nodes    = discover_nodes(),
-                topology = mas_config:get_env(nodes_topology)}}.
+    {ok, #state{nodes = discover_nodes(), config = Config}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -96,8 +97,8 @@ discover_nodes() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_migrate_agents(Agents, From, #state{nodes = Nodes, topology = Topology}) ->
-    case mas_topology:destination(Topology, From, Nodes) of
+do_migrate_agents(Agents, From, #state{nodes = Nodes, config = Config}) ->
+    case mas_topology:destination(Config#config.topology, From, Nodes) of
         {ok, Destination} ->
             spawn(Destination, mas_world, migrate_agents, [Agents]);
         no_destination ->
