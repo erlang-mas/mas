@@ -25,13 +25,17 @@
 -type metric()            :: [any()].
 -type metrics_counter()   :: dict:dict(term(), integer()).
 
--record(state, {agents                      :: [agent()],
-                module                      :: module(),
-                migration_probability       :: float(),
-                world_migration_probability :: float(),
-                write_interval              :: integer(),
-                metrics                     :: [metric()],
-                behaviours_counter          :: metrics_counter()}).
+-record(config, {migration_probability       :: float(),
+                 world_migration_probability :: float(),
+                 write_interval              :: integer()}).
+
+-type config() :: #config{}.
+
+-record(state, {module             :: module(),
+                agents             :: [agent()],
+                config             :: config(),
+                metrics            :: [metric()],
+                behaviours_counter :: metrics_counter()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -67,27 +71,10 @@ add_agent(Pid, Agent) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     process_flag(trap_exit, true),
-
-    Mod = mas_config:get_env(population),
-    Behaviours = behaviours(Mod),
-
-    MigrationProbability = mas_config:get_env(migration_probability),
-    WorldMigrationProbability = mas_config:get_env(world_migration_probability),
-    WriteInterval = mas_config:get_env(write_interval),
-
-    Metrics = setup_metrics(Behaviours, WriteInterval),
-    schedule_metrics_update(WriteInterval),
-
+    State = init_state(),
+    schedule_metrics_update(State#state.config),
     self() ! process_population,
-
-    {ok, #state{
-            module                      = Mod,
-            agents                      = generate_population(Mod),
-            migration_probability       = MigrationProbability,
-            world_migration_probability = WorldMigrationProbability,
-            write_interval              = WriteInterval,
-            metrics                     = Metrics,
-            behaviours_counter          = mas_counter:new(Behaviours)}}.
+    {ok, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -113,9 +100,9 @@ handle_info(process_population, State) ->
     NewState = process_population(State),
     self() ! process_population,
     {noreply, NewState};
-handle_info(update_metrics, State = #state{write_interval = WriteInterval}) ->
+handle_info(update_metrics, State = #state{config = Config}) ->
     update_metrics(State),
-    schedule_metrics_update(WriteInterval),
+    schedule_metrics_update(Config),
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -139,9 +126,36 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+init_state() ->
+    Mod = mas_config:get_env(population),
+    Config = fetch_config(),
+    Behaviours = behaviours(Mod),
+    #state{
+        module             = Mod,
+        agents             = generate_population(Mod),
+        config             = Config,
+        metrics            = setup_metrics(Behaviours, Config),
+        behaviours_counter = mas_counter:new(Behaviours)
+    }.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+fetch_config() ->
+    MP  = mas_config:get_env(migration_probability),
+    WMP = mas_config:get_env(world_migration_probability),
+    #config{
+        migration_probability       = MP,
+        world_migration_probability = WMP,
+        write_interval              = mas_config:get_env(write_interval)
+    }.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
 generate_population(Mod) ->
-    PopulationSize = mas_config:get_env(population_size),
-    [Mod:initial_agent() || _ <- lists:seq(1, PopulationSize)].
+    Size = mas_config:get_env(population_size),
+    [Mod:initial_agent() || _ <- lists:seq(1, Size)].
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -168,8 +182,9 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{module = Mod, migration_probability       = MP,
-                                      world_migration_probability = WMP}) ->
+behaviour(Agent, #state{module = Mod, config = Config}) ->
+    MP  = Config#config.migration_probability,
+    WMP = Config#config.world_migration_probability,
     case rand:uniform() of
         R when R < MP       -> migration;
         R when R < MP + WMP -> world_migration;
@@ -219,7 +234,7 @@ count_behaviours(Arenas) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-setup_metrics(Behaviours, WriteInterval) ->
+setup_metrics(Behaviours, #config{write_interval = WriteInterval}) ->
     [subscribe_metric(Behaviour, WriteInterval) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
@@ -241,7 +256,7 @@ unsubscribe_metric(Metric) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-schedule_metrics_update(WriteInterval) ->
+schedule_metrics_update(#config{write_interval = WriteInterval}) ->
     erlang:send_after(WriteInterval, self(), update_metrics).
 
 %%------------------------------------------------------------------------------
