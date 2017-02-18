@@ -25,9 +25,9 @@
 -type metric()            :: [any()].
 -type metrics_counter()   :: dict:dict(term(), integer()).
 
--record(config, {migration_probability       :: float(),
-                 world_migration_probability :: float(),
-                 write_interval              :: integer()}).
+-record(config, {migration_probability      :: float(),
+                 node_migration_probability :: float(),
+                 write_interval             :: integer()}).
 
 -type config() :: #config{}.
 
@@ -143,11 +143,11 @@ init_state() ->
 %%------------------------------------------------------------------------------
 fetch_config() ->
     MP  = mas_config:get_env(migration_probability),
-    WMP = mas_config:get_env(world_migration_probability),
+    NMP = mas_config:get_env(node_migration_probability),
     #config{
-        migration_probability       = MP,
-        world_migration_probability = WMP,
-        write_interval              = mas_config:get_env(write_interval)
+        migration_probability      = MP,
+        node_migration_probability = NMP,
+        write_interval             = mas_config:get_env(write_interval)
     }.
 
 %%------------------------------------------------------------------------------
@@ -184,10 +184,10 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 behaviour(Agent, #state{module = Mod, config = Config}) ->
     MP  = Config#config.migration_probability,
-    WMP = Config#config.world_migration_probability,
+    NMP = Config#config.node_migration_probability,
     case rand:uniform() of
         R when R < MP       -> migration;
-        R when R < MP + WMP -> world_migration;
+        R when R < MP + NMP -> node_migration;
         _                   -> Mod:behaviour(Agent)
     end.
 
@@ -195,7 +195,7 @@ behaviour(Agent, #state{module = Mod, config = Config}) ->
 %% @private
 %%------------------------------------------------------------------------------
 behaviours(Mod) ->
-    [migration, world_migration] ++ Mod:behaviours().
+    [migration, node_migration] ++ Mod:behaviours().
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -214,7 +214,7 @@ process_arenas(Arenas, #state{module = Mod}) ->
 %%------------------------------------------------------------------------------
 apply_meetings({migration, Agents}, _Mod) ->
     mas_world:migrate_agents(Agents), [];
-apply_meetings({world_migration, Agents}, _Mod) ->
+apply_meetings({node_migration, Agents}, _Mod) ->
     mas_broker:migrate_agents(Agents), [];
 apply_meetings(Arena, Mod) ->
     Mod:meeting(Arena).
