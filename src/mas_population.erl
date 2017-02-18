@@ -22,6 +22,7 @@
          terminate/2,
          code_change/3]).
 
+-type sim_params()        :: any().
 -type agent()             :: any().
 -type behaviour()         :: atom().
 -type metric()            :: [any()].
@@ -29,6 +30,7 @@
 
 -record(state, {behaviour          :: module(),
                 agents             :: [agent()],
+                sim_params         :: sim_params(),
                 config             :: mas:config(),
                 metrics            :: [metric()],
                 behaviours_counter :: metrics_counter()}).
@@ -37,13 +39,15 @@
 %%% Behaviour
 %%%=============================================================================
 
--callback initial_agent() -> agent().
+-callback sim_params() -> sim_params().
+
+-callback initial_agent(sim_params()) -> agent().
 
 -callback behaviours() -> [behaviour()].
 
--callback behaviour(agent()) -> behaviour().
+-callback behaviour(agent(), sim_params()) -> behaviour().
 
--callback meeting({behaviour(), [agent()]}) -> [agent()].
+-callback meeting({behaviour(), [agent()]}, sim_params()) -> [agent()].
 
 %%%=============================================================================
 %%% API functions
@@ -124,9 +128,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 init_state(Config = #config{population_behaviour = Mod}) ->
     Behaviours = behaviours(Mod),
+    SimParams = Mod:sim_params(),
     #state{
         behaviour          = Mod,
-        agents             = generate_population(Mod, Config),
+        agents             = generate_population(Mod, SimParams, Config),
+        sim_params         = SimParams,
         config             = Config,
         metrics            = setup_metrics(Behaviours, Config),
         behaviours_counter = mas_counter:new(Behaviours)
@@ -135,8 +141,8 @@ init_state(Config = #config{population_behaviour = Mod}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-generate_population(Mod, #config{population_size = Size}) ->
-    [Mod:initial_agent() || _ <- lists:seq(1, Size)].
+generate_population(Mod, SP, #config{population_size = Size}) ->
+    [Mod:initial_agent(SP) || _ <- lists:seq(1, Size)].
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -163,13 +169,13 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{behaviour = Mod, config = Config}) ->
+behaviour(Agent, #state{behaviour = Mod, sim_params = SP, config = Config}) ->
     MP  = Config#config.migration_probability,
     NMP = Config#config.node_migration_probability,
     case rand:uniform() of
         R when R < MP       -> migration;
         R when R < MP + NMP -> node_migration;
-        _                   -> Mod:behaviour(Agent)
+        _                   -> Mod:behaviour(Agent, SP)
     end.
 
 %%------------------------------------------------------------------------------
@@ -187,18 +193,18 @@ form_arenas(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-process_arenas(Arenas, #state{behaviour = Mod}) ->
-    [apply_meetings(Arena, Mod) || Arena <- Arenas].
+process_arenas(Arenas, State) ->
+    [apply_meetings(Arena, State) || Arena <- Arenas].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-apply_meetings({migration, Agents}, _Mod) ->
+apply_meetings({migration, Agents}, _State) ->
     mas_world:migrate_agents(Agents), [];
-apply_meetings({node_migration, Agents}, _Mod) ->
+apply_meetings({node_migration, Agents}, _State) ->
     mas_broker:migrate_agents(Agents), [];
-apply_meetings(Arena, Mod) ->
-    Mod:meeting(Arena).
+apply_meetings(Arena, #state{behaviour = Mod, sim_params = SP}) ->
+    Mod:meeting(Arena, SP).
 
 %%------------------------------------------------------------------------------
 %% @private
