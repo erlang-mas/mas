@@ -5,6 +5,7 @@
     [
      mas,
      mas_world,
+     mas_broker,
      mas_population_sup
     ]},
   {mod, { mas, []}},
