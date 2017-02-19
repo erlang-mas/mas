@@ -2,8 +2,12 @@ language: erlang
 otp_release:
   - 19.2
 sudo: false
-install: "wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3"
-script: "./rebar3 compile && ./rebar3 as lint lint"
+install:
+    - "wget https://s3.amazonaws.com/rebar3/rebar3"
+    - "chmod +x rebar3"
+script:
+    - "./rebar3 compile"
+    - "./rebar3 as lint lint"
 branches:
   only:
   - master
