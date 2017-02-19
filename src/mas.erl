@@ -78,7 +78,7 @@ init(Config) ->
 %% @private
 %%------------------------------------------------------------------------------
 setup_exometer(#config{logs_dir = LogsDir}) ->
-    mas_reporter:register([{root_dir, LogsDir}]).
+    exometer_report:add_reporter(exometer_report_fs, [{base_dir, LogsDir}]).
 
 %%------------------------------------------------------------------------------
 %% @private
