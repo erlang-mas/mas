@@ -23,8 +23,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {nodes    = []   :: [node()],
-                config          :: mas:config()}).
+-record(state, {nodes  = [] :: [node()],
+                config      :: mas:config()}).
 
 %%%=============================================================================
 %%% API functions

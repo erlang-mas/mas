@@ -28,8 +28,7 @@
 %%%=============================================================================
 
 start() ->
-    application:ensure_all_started(exometer_core),
-    application:start(mas).
+    application:ensure_all_started(mas).
 
 get_results() ->
     mas_world:get_agents().
