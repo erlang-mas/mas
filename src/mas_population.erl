@@ -31,9 +31,9 @@
 -record(state, {behaviour          :: module(),
                 agents             :: [agent()],
                 sim_params         :: sim_params(),
-                config             :: mas:config(),
                 metrics            :: [metric()],
-                behaviours_counter :: metrics_counter()}).
+                behaviours_counter :: metrics_counter(),
+                config             :: mas:config()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -133,9 +133,9 @@ init_state(Config = #config{population_behaviour = Mod}) ->
         behaviour          = Mod,
         agents             = generate_population(Mod, SimParams, Config),
         sim_params         = SimParams,
-        config             = Config,
         metrics            = setup_metrics(Behaviours, Config),
-        behaviours_counter = mas_counter:new(Behaviours)
+        behaviours_counter = mas_counter:new(Behaviours),
+        config             = Config
     }.
 
 %%------------------------------------------------------------------------------
@@ -170,8 +170,8 @@ tag_agents(State = #state{agents = Agents}) ->
 %% @private
 %%------------------------------------------------------------------------------
 behaviour(Agent, #state{behaviour = Mod, sim_params = SP, config = Config}) ->
-    MP  = Config#config.migration_probability,
-    NMP = Config#config.node_migration_probability,
+    #config{migration_probability = MP,
+            node_migration_probability = NMP} = Config,
     case rand:uniform() of
         R when R < MP       -> migration;
         R when R < MP + NMP -> node_migration;

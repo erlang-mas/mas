@@ -25,8 +25,9 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations = []  :: [pid()],
-                config            :: mas:config()}).
+-record(state, {population_count :: pos_integer(),
+                populations = [] :: [pid()],
+                topology         :: topology()}).
 
 %%%=============================================================================
 %%% API functions
@@ -51,9 +52,10 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(Config) ->
+init(#config{population_count = Count, topology = Topology}) ->
     self() ! spawn_populations,
-    {ok, #state{config = Config}}.
+    {ok, #state{population_count = Count,
+                topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -76,8 +78,8 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State = #state{config = Config}) ->
-    Populations = spawn_populations(Config),
+handle_info(spawn_populations, State) ->
+    Populations = spawn_populations(State#state.population_count),
     {noreply, State#state{populations = Populations}};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -101,15 +103,15 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-spawn_populations(#config{population_count = Count}) ->
+spawn_populations(Count) ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 do_migrate_agent(Agent, From, #state{populations = Populations,
-                                     config      = Config}) ->
-    case mas_topology:destination(Config#config.topology, From, Populations) of
+                                     topology = Topology}) ->
+    case mas_topology:destination(Topology, From, Populations) of
         {ok, Destination} ->
             mas_population:add_agent(Destination, Agent);
         no_destination ->

@@ -23,8 +23,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {nodes  = [] :: [node()],
-                config      :: mas:config()}).
+-record(state, {nodes = [] :: [node()],
+                topology   :: topology()}).
 
 %%%=============================================================================
 %%% API functions
@@ -43,9 +43,10 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(Config) ->
+init(#config{nodes_topology = Topology}) ->
     net_kernel:monitor_nodes(true),
-    {ok, #state{nodes = discover_nodes(), config = Config}}.
+    {ok, #state{nodes = discover_nodes(),
+                topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -97,8 +98,8 @@ discover_nodes() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_migrate_agents(Agents, From, #state{nodes = Nodes, config = Config}) ->
-    case mas_topology:destination(Config#config.topology, From, Nodes) of
+do_migrate_agents(Agents, From, #state{nodes = Nodes, topology = Topology}) ->
+    case mas_topology:destination(Topology, From, Nodes) of
         {ok, Destination} ->
             spawn(Destination, mas_world, migrate_agents, [Agents]);
         no_destination ->

@@ -8,4 +8,5 @@
                  write_interval             :: integer(),
                  logs_dir                   :: string()}).
 
--type config() :: #config{}.
+-type config()   :: #config{}.
+-type topology() :: atom().
