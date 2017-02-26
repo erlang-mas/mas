@@ -22,11 +22,8 @@
          terminate/2,
          code_change/3]).
 
--type sim_params()        :: any().
--type agent()             :: any().
--type behaviour()         :: atom().
--type metric()            :: [any()].
--type metrics_counter()   :: dict:dict(term(), integer()).
+-type metric()          :: [any()].
+-type metrics_counter() :: dict:dict(term(), integer()).
 
 -record(state, {behaviour          :: module(),
                 agents             :: [agent()],

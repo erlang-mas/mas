@@ -1,6 +1,6 @@
 %%%-----------------------------------------------------------------------------
 %%% @doc Monitores nodes. Handles agent migrations between nodes.
-%% @end
+%%% @end
 %%%-----------------------------------------------------------------------------
 
 -module(mas_broker).
@@ -9,11 +9,11 @@
 
 -behaviour(gen_server).
 
-%% API
+%%% API
 -export([start_link/1,
          migrate_agents/1]).
 
-%% Server callbacks
+%%% Server callbacks
 -export([init/1,
          handle_call/3,
          handle_cast/2,

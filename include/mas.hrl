@@ -8,5 +8,8 @@
                  write_interval             :: integer(),
                  logs_dir                   :: string()}).
 
--type config()   :: #config{}.
--type topology() :: atom().
+-type config()     :: #config{}.
+-type sim_params() :: any().
+-type agent()      :: any().
+-type behaviour()  :: atom().
+-type topology()   :: atom().

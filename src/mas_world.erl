@@ -9,13 +9,13 @@
 
 -behaviour(gen_server).
 
-%% API
+%%% API
 -export([start_link/1,
          migrate_agent/1,
          migrate_agents/1,
          get_agents/0]).
 
-%% Server callbacks
+%%% Server callbacks
 -export([init/1,
          handle_call/3,
          handle_cast/2,
@@ -60,8 +60,8 @@ init(#config{population_count = Count, topology = Topology}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_call(get_agents, _From, State) ->
-    Agents = collect_agents(State),
+handle_call(get_agents, _From, State = #state{populations = Populations}) ->
+    Agents = collect_agents(Populations),
     {reply, {agents, Agents}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
@@ -78,8 +78,8 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State) ->
-    Populations = spawn_populations(State#state.population_count),
+handle_info(spawn_populations, State = #state{population_count = Count}) ->
+    Populations = spawn_populations(Count),
     {noreply, State#state{populations = Populations}};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -121,7 +121,7 @@ do_migrate_agent(Agent, From, #state{populations = Populations,
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-collect_agents(#state{populations = Populations}) ->
+collect_agents(Populations) ->
     Agents = [collect_population(Population) || Population <- Populations],
     lists:flatten(Agents).
 
