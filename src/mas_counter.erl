@@ -5,7 +5,7 @@
 
 -module(mas_counter).
 
-%% API
+%%% API
 -export([new/1,
          new/2,
          update/2]).

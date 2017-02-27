@@ -7,7 +7,7 @@
 
 -include("mas.hrl").
 
-%% API
+%%% API
 -export([get_env/1,
          get_env/2,
          fetch_all/0]).

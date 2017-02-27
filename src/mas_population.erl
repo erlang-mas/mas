@@ -9,12 +9,12 @@
 
 -behaviour(gen_server).
 
-%% API
+%%% API
 -export([start_link/1,
          add_agent/2,
          get_agents/1]).
 
-%% Server callbacks
+%%% Server callbacks
 -export([init/1,
          handle_call/3,
          handle_cast/2,

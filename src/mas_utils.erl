@@ -5,7 +5,7 @@
 
 -module(mas_utils).
 
-%% API
+%%% API
 -export([group_by/1,
          shuffle/1,
          sample/1,
