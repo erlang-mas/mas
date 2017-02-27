@@ -3,10 +3,11 @@
   {vsn, "0.1.0"},
   {registered,
     [
-     mas,
      mas_world,
      mas_broker,
-     mas_population_sup
+     mas_population_sup,
+     mas_simulation_sup,
+     mas_simulation
     ]},
   {mod, { mas_app, []}},
   {applications,
@@ -17,6 +18,7 @@
   {env,
    [
     {population_behaviour, mas_test_population},
+    {simulation_mod, mas_test_simulation},
     {population_count, 12},
     {population_size, 100},
     {topology, mesh},

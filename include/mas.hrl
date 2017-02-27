@@ -1,4 +1,5 @@
 -record(config, {population_behaviour       :: module(),
+                 simulation_mod             :: module(),
                  population_count           :: integer(),
                  population_size            :: integer(),
                  topology                   :: atom(),

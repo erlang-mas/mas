@@ -2,17 +2,13 @@
 
 -behaviour(mas_population).
 
--export([sim_params/0,
-         initial_agent/1,
+-export([initial_agent/1,
          behaviours/0,
          behaviour/2,
          meeting/2]).
 
 -record(agent, {id     :: integer(),
                 energy :: integer()}).
-
-sim_params() ->
-    ok.
 
 initial_agent(_SimParams) -> #agent{id=rand:uniform(100), energy=100}.
 

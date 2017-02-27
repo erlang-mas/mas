@@ -42,6 +42,7 @@ get_env(Key, Default) ->
 fetch_all() ->
     #config{
         population_behaviour        = get_env(population_behaviour),
+        simulation_mod              = get_env(simulation_mod),
         population_count            = get_env(population_count),
         population_size             = get_env(population_size),
         topology                    = get_env(topology),

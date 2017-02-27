@@ -10,7 +10,7 @@
 -behaviour(gen_server).
 
 %%% API
--export([start_link/1,
+-export([start_link/2,
          add_agent/2,
          get_agents/1]).
 
@@ -36,8 +36,6 @@
 %%% Behaviour
 %%%=============================================================================
 
--callback sim_params() -> sim_params().
-
 -callback initial_agent(sim_params()) -> agent().
 
 -callback behaviours() -> [behaviour()].
@@ -50,8 +48,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link(Config) ->
-    gen_server:start_link(?MODULE, Config, []).
+start_link(SP, Config) ->
+    gen_server:start_link(?MODULE, {SP, Config}, []).
 
 get_agents(Pid) ->
     gen_server:call(Pid, get_agents).
@@ -66,9 +64,9 @@ add_agent(Pid, Agent) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(Config) ->
+init({SP, Config}) ->
     process_flag(trap_exit, true),
-    State = init_state(Config),
+    State = init_state(SP, Config),
     schedule_metrics_update(Config),
     self() ! process_population,
     {ok, State}.
@@ -123,13 +121,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init_state(Config = #config{population_behaviour = Mod}) ->
+init_state(SP, Config = #config{population_behaviour = Mod}) ->
     Behaviours = behaviours(Mod),
-    SimParams = Mod:sim_params(),
     #state{
         behaviour          = Mod,
-        agents             = generate_population(Mod, SimParams, Config),
-        sim_params         = SimParams,
+        agents             = generate_population(Mod, SP, Config),
+        sim_params         = SP,
         metrics            = setup_metrics(Behaviours, Config),
         behaviours_counter = mas_counter:new(Behaviours),
         config             = Config
