@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Supervises multiple agent populations.
+%%% @doc Supervises agent populations.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
@@ -7,11 +7,11 @@
 
 -behaviour(supervisor).
 
-%% API
+%%% API
 -export([start_link/1,
          spawn_population/0]).
 
-%% Supervisor callbacks
+%%% Supervisor callbacks
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
@@ -35,13 +35,11 @@ spawn_population() ->
 %% @private
 %%------------------------------------------------------------------------------
 init(Config) ->
-    SupFlags = #{strategy  => simple_one_for_one,
-                 intensity => 0,
-                 period    => 1},
-    ChildSpecs = [#{id       => mas_population,
-                    start    => {mas_population, start_link, [Config]},
-                    restart  => temporary,
-                    shutdown => 1000,
-                    type     => worker,
-                    modules  => [mas_population]}],
-    {ok, {SupFlags, ChildSpecs}}.
+    {ok, {{simple_one_for_one, 0, 1},
+     [
+      {mas_population,
+       {mas_population, start_link, [Config]},
+       temporary, 1000, worker, [mas_population]
+      }
+     ]
+    }}.

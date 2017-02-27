@@ -34,27 +34,21 @@ start_link() ->
 init(_Args) ->
     Config = mas_config:fetch_all(),
     mas_reporter:setup(Config#config.logs_dir),
-    SupFlags = #{strategy  => one_for_all,
-                 intensity => 0,
-                 period    => 1},
-    ChildSpecs = [
-        child_spec(mas_population_sup, supervisor, Config),
-        child_spec(mas_world,          worker,     Config),
-        child_spec(mas_broker,         worker,     Config)
-    ],
-    {ok, {SupFlags, ChildSpecs}}.
+    {ok, {{one_for_all, 0, 1},
+     [
+      {mas_population_sup,
+       {mas_population_sup, start_link, [Config]},
+       temporary, infinity, supervisor, [mas_population_sup]
+      },
 
-%%%=============================================================================
-%%% Internal functions
-%%%=============================================================================
+      {mas_world,
+       {mas_world, start_link, [Config]},
+       temporary, 1000, worker, [mas_world]
+      },
 
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-child_spec(Mod, Type, Args) ->
-    #{id       => Mod,
-      start    => {Mod, start_link, [Args]},
-      restart  => temporary,
-      shutdown => 1000,
-      type     => Type,
-      modules  => [Mod]}.
+      {mas_broker,
+       {mas_broker, start_link, [Config]},
+       temporary, 1000, worker, [mas_broker]
+      }
+     ]
+    }}.
