@@ -1,27 +1,12 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Main application module. Spawns agents world and populations
-%%% supervisor.
+%%% @doc MAS API.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
 -module(mas).
 
--include("mas.hrl").
-
--behaviour(application).
--behaviour(supervisor).
-
-%% API
+%%% API
 -export([start/0, get_results/0]).
-
-%% Application callbacks
--export([start/2,
-         stop/1]).
-
-%% Supervisor callbacks
--export([init/1]).
-
--define(SERVER, ?MODULE).
 
 %%%=============================================================================
 %%% API functions
@@ -32,54 +17,3 @@ start() ->
 
 get_results() ->
     mas_world:get_agents().
-
-%%%=============================================================================
-%%% Application callbacks
-%%%=============================================================================
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-start(_StartType, _StartArgs) ->
-    Config = mas_config:fetch_all(),
-    mas_reporter:setup(Config#config.logs_dir),
-    supervisor:start_link({local, ?SERVER}, ?MODULE, Config).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-stop(_State) ->
-    ok.
-
-%%%=============================================================================
-%%% Supervisor callbacks
-%%%=============================================================================
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-init(Config) ->
-    SupFlags = #{strategy  => one_for_all,
-                 intensity => 0,
-                 period    => 1},
-    ChildSpecs = [
-        child_spec(mas_population_sup, supervisor, Config),
-        child_spec(mas_world,          worker,     Config),
-        child_spec(mas_broker,         worker,     Config)
-    ],
-    {ok, {SupFlags, ChildSpecs}}.
-
-%%%=============================================================================
-%%% Internal functions
-%%%=============================================================================
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-child_spec(Mod, Type, Args) ->
-    #{id       => Mod,
-      start    => {Mod, start_link, [Args]},
-      restart  => temporary,
-      shutdown => 1000,
-      type     => Type,
-      modules  => [Mod]}.
