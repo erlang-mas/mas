@@ -226,16 +226,13 @@ setup_metrics(Behaviours, #config{write_interval = WriteInterval}) ->
 %%------------------------------------------------------------------------------
 subscribe_metric(Name, WriteInterval) ->
     Metric = [node(), self(), Name],
-    exometer:new(Metric, counter),
-    exometer_report:subscribe(exometer_report_fs, Metric, value, WriteInterval),
-    Metric.
+    mas_reporter:subscribe(Metric, WriteInterval).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 unsubscribe_metric(Metric) ->
-    exometer_report:unsubscribe_all(exometer_report_fs, Metric),
-    exometer:delete(Metric).
+    mas_reporter:unsubscribe(Metric).
 
 %%------------------------------------------------------------------------------
 %% @private
