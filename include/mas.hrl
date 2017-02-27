@@ -1,4 +1,4 @@
--record(config, {population_behaviour       :: module(),
+-record(config, {population_mod             :: module(),
                  simulation_mod             :: module(),
                  population_count           :: integer(),
                  population_size            :: integer(),

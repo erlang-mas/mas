@@ -17,7 +17,7 @@
    ]},
   {env,
    [
-    {population_behaviour, mas_test_population},
+    {population_mod, mas_test_population},
     {simulation_mod, mas_test_simulation},
     {population_count, 12},
     {population_size, 100},

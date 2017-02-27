@@ -25,7 +25,7 @@
 -type metric()          :: [any()].
 -type metrics_counter() :: dict:dict(term(), integer()).
 
--record(state, {behaviour          :: module(),
+-record(state, {module             :: module(),
                 agents             :: [agent()],
                 sim_params         :: sim_params(),
                 metrics            :: [metric()],
@@ -121,10 +121,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init_state(SP, Config = #config{population_behaviour = Mod}) ->
+init_state(SP, Config = #config{population_mod = Mod}) ->
     Behaviours = behaviours(Mod),
     #state{
-        behaviour          = Mod,
+        module             = Mod,
         agents             = generate_population(Mod, SP, Config),
         sim_params         = SP,
         metrics            = setup_metrics(Behaviours, Config),
@@ -163,7 +163,7 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{behaviour = Mod, sim_params = SP, config = Config}) ->
+behaviour(Agent, #state{module = Mod, sim_params = SP, config = Config}) ->
     #config{migration_probability = MP,
             node_migration_probability = NMP} = Config,
     case rand:uniform() of
@@ -197,7 +197,7 @@ apply_meetings({migration, Agents}, _State) ->
     mas_world:migrate_agents(Agents), [];
 apply_meetings({node_migration, Agents}, _State) ->
     mas_broker:migrate_agents(Agents), [];
-apply_meetings(Arena, #state{behaviour = Mod, sim_params = SP}) ->
+apply_meetings(Arena, #state{module = Mod, sim_params = SP}) ->
     Mod:meeting(Arena, SP).
 
 %%------------------------------------------------------------------------------
