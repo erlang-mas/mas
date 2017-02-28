@@ -45,7 +45,6 @@ stop_simulation() ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     Config = mas_config:fetch_all(),
-    mas_reporter:setup(Config#config.logs_dir),
     {ok, {{one_for_all, 0, 1},
      [
       {mas_simulation,
