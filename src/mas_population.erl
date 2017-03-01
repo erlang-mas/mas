@@ -12,6 +12,7 @@
 %%% API
 -export([start_link/2,
          add_agent/2,
+         add_agents/2,
          get_agents/1]).
 
 %%% Server callbacks
@@ -56,6 +57,9 @@ get_agents(Pid) ->
 
 add_agent(Pid, Agent) ->
     gen_server:cast(Pid, {add_agent, Agent}).
+
+add_agents(Pid, Agents) ->
+    [add_agent(Pid, Agent) || Agent <- Agents].
 
 %%%=============================================================================
 %%% Server callbacks

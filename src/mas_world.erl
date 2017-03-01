@@ -69,8 +69,8 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agent, Agent, From}, State) ->
-    do_migrate_agent(Agent, From, State),
+handle_cast({migrate_agent, Agent, Source}, State) ->
+    do_migrate_agent(Agent, Source, State),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -109,13 +109,13 @@ spawn_populations(Count) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_migrate_agent(Agent, From, #state{populations = Populations,
-                                     topology = Topology}) ->
-    case mas_topology:destination(Topology, From, Populations) of
+do_migrate_agent(Agent, Source, State) ->
+    #state{populations = Populations, topology = Topology} = State,
+    case mas_topology:destination(Topology, Source, Populations) of
         {ok, Destination} ->
             mas_population:add_agent(Destination, Agent);
         no_destination ->
-            ok
+            mas_population:add_agent(Source, Agent)
     end.
 
 %%------------------------------------------------------------------------------

@@ -34,7 +34,8 @@ start_link(Config) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
 migrate_agents(Agents) ->
-    gen_server:cast(?SERVER, {migrate_agents, Agents, node()}).
+    Source = {self(), node()},
+    gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -57,8 +58,8 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, From}, State) ->
-    do_migrate_agents(Agents, From, State),
+handle_cast({migrate_agents, Agents, Source}, State) ->
+    do_migrate_agents(Agents, Source, State),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -98,12 +99,13 @@ discover_nodes() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_migrate_agents(Agents, From, #state{nodes = Nodes, topology = Topology}) ->
-    case mas_topology:destination(Topology, From, Nodes) of
+do_migrate_agents(Agents, _Source = {Pid, Node}, State) ->
+    #state{nodes = Nodes, topology = Topology} = State,
+    case mas_topology:destination(Topology, Node, Nodes) of
         {ok, Destination} ->
             spawn(Destination, mas_world, migrate_agents, [Agents]);
         no_destination ->
-            ok
+            mas_population:add_agents(Pid, Agents)
     end.
 
 %%------------------------------------------------------------------------------
