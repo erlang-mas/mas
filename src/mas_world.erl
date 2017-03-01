@@ -11,9 +11,10 @@
 
 %%% API
 -export([start_link/1,
+         get_agents/0,
+         put_agents/1,
          migrate_agent/1,
-         migrate_agents/1,
-         get_agents/0]).
+         migrate_agents/1]).
 
 %%% Server callbacks
 -export([init/1,
@@ -42,6 +43,9 @@ start_link(Config) ->
 %%------------------------------------------------------------------------------
 get_agents() ->
     gen_server:call(?SERVER, get_agents).
+
+put_agents(Agents) ->
+    gen_server:call(?SERVER, {put_agents, Agents}).
 
 %%------------------------------------------------------------------------------
 %% @doc Migrates single agent from calling population to target population
@@ -76,6 +80,9 @@ init(#config{population_count = Count, topology = Topology}) ->
 handle_call(get_agents, _From, State = #state{populations = Populations}) ->
     Agents = collect_agents(Populations),
     {reply, {agents, Agents}, State};
+handle_call({put_agents, Agents}, _From, State) ->
+    do_put_agents(Agents, State),
+    {reply, ok, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
@@ -130,6 +137,13 @@ do_migrate_agent(Agent, Source, State) ->
         no_destination ->
             mas_population:add_agent(Source, Agent)
     end.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+do_put_agents(Agents, #state{populations = Populations}) ->
+    Destination = mas_utils:sample(Populations),
+    mas_population:add_agents(Destination, Agents).
 
 %%------------------------------------------------------------------------------
 %% @private

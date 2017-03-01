@@ -108,7 +108,7 @@ do_migrate_agents(Agents, _Source = {Pid, Node}, State) ->
     #state{nodes = Nodes, topology = Topology} = State,
     case mas_topology:destination(Topology, Node, Nodes) of
         {ok, Destination} ->
-            spawn(Destination, mas_world, migrate_agents, [Agents]);
+            spawn(Destination, mas_world, put_agents, [Agents]);
         no_destination ->
             mas_population:add_agents(Pid, Agents)
     end.
