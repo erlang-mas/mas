@@ -26,6 +26,11 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
+%%------------------------------------------------------------------------------
+%% @doc Starts simulation supervisor monitoring all proceses responsible for
+%%      processing the simulation.
+%% @end
+%%------------------------------------------------------------------------------
 start_simulation(SP, Config) ->
     ChildSpec = {mas_simulation_sup,
                  {mas_simulation_sup, start_link, [SP, Config]},
@@ -33,6 +38,10 @@ start_simulation(SP, Config) ->
                 },
     supervisor:start_child(mas_sup, ChildSpec).
 
+%%------------------------------------------------------------------------------
+%% @doc Terminates simulation supervisor.
+%% @end
+%%------------------------------------------------------------------------------
 stop_simulation() ->
     supervisor:terminate_child(mas_sup, mas_simulation_sup).
 

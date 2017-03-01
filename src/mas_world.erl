@@ -36,12 +36,25 @@
 start_link(Config) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
+%%------------------------------------------------------------------------------
+%% @doc Collects agents from all spawned populations.
+%% @end
+%%------------------------------------------------------------------------------
 get_agents() ->
     gen_server:call(?SERVER, get_agents).
 
+%%------------------------------------------------------------------------------
+%% @doc Migrates single agent from calling population to target population
+%%      calculated based on configured topology.
+%% @end
+%%------------------------------------------------------------------------------
 migrate_agent(Agent) ->
     gen_server:cast(?SERVER, {migrate_agent, Agent, self()}).
 
+%%------------------------------------------------------------------------------
+%% @doc Migrates multiple agents separately using migrate_agent/1.
+%% @end
+%%------------------------------------------------------------------------------
 migrate_agents(Agents) ->
     lists:foreach(fun migrate_agent/1, Agents).
 

@@ -18,7 +18,7 @@
 
 %%------------------------------------------------------------------------------
 %% @doc Retrieves value from application environment, crashes if value is not
-%% set.
+%%      set.
 %% @end
 %%------------------------------------------------------------------------------
 get_env(Key) ->
@@ -26,7 +26,7 @@ get_env(Key) ->
 
 %%------------------------------------------------------------------------------
 %% @doc Retrieves value from application environment, provides default value
-%% if not set.
+%%      if not set.
 %% @end
 %%------------------------------------------------------------------------------
 get_env(Key, Default) ->

@@ -33,6 +33,11 @@
 start_link(Config) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
+%%------------------------------------------------------------------------------
+%% @doc Migrates multiple agents at once from calling population to target
+%%      population on node calculated based on configured topology.
+%% @end
+%%------------------------------------------------------------------------------
 migrate_agents(Agents) ->
     Source = {self(), node()},
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).

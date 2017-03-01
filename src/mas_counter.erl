@@ -30,7 +30,7 @@ new(Metrics, InitValue) ->
 
 %%------------------------------------------------------------------------------
 %% @doc Updates counter by incrementing metric values with values provided in
-%% the data points.
+%%      the data points.
 %% @end
 %%------------------------------------------------------------------------------
 update(DataPoints, Counter) ->

@@ -12,6 +12,11 @@
 %%% API functions
 %%%=============================================================================
 
+%%------------------------------------------------------------------------------
+%% @doc Calculates destination node (pid or distributed node) for agent
+%%      migration based on given topology.
+%% @end
+%%------------------------------------------------------------------------------
 destination(_Topology, _From, Nodes) when length(Nodes) < 2 ->
     no_destination;
 destination(mesh, From, Nodes) ->

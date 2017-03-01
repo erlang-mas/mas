@@ -56,9 +56,20 @@
 start_link(Config) ->
     gen_fsm:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
+%%------------------------------------------------------------------------------
+%% @doc Starts simulation with provided simulation parameters. Simulation
+%%      terminates automaticaly if given time constraint is a positive integer.
+%%      Otherwise simulation runs infinitely. MAS engine is able to process
+%%      only one simulation at once.
+%% @end
+%%------------------------------------------------------------------------------
 start_simulation(SP, Time) ->
     gen_fsm:sync_send_event(?SERVER, {start_simulation, SP, Time}).
 
+%%------------------------------------------------------------------------------
+%% @doc Terminates simulation.
+%% @end
+%%------------------------------------------------------------------------------
 stop_simulation() ->
     gen_fsm:sync_send_event(?SERVER, stop_simulation).
 
