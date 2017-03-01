@@ -12,7 +12,8 @@
 
 %%% API
 -export([start_link/1,
-         start_simulation/2]).
+         start_simulation/2,
+         stop_simulation/0]).
 
 %%% FSM callbacks
 -export([init/1,
@@ -58,6 +59,9 @@ start_link(Config) ->
 start_simulation(SP, Time) ->
     gen_fsm:sync_send_event(?SERVER, {start_simulation, SP, Time}).
 
+stop_simulation() ->
+    gen_fsm:sync_send_event(?SERVER, stop_simulation).
+
 %%%=============================================================================
 %%% FSM callbacks
 %%%=============================================================================
@@ -73,15 +77,15 @@ init(Config = #config{simulation_mod = Mod, logs_dir = LogsDir}) ->
 %% @private
 %%------------------------------------------------------------------------------
 idle({start_simulation, SP, Time}, {Pid, _Ref}, State) ->
-    #state{module = Mod, config = Config} = State,
-    simulation_setup(Mod, SP),
-    mas_sup:start_simulation(SP, Config),
-    schedule_timer(Time),
-    Simulation = simulation_record(SP, Time, Pid),
-    {reply, ok, processing, State#state{simulation = Simulation}};
+    {reply, ok, processing, simulation_start(SP, Time, Pid, State)};
 idle(_Event, _From, State) ->
     {reply, ignored, idle, State}.
 
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+processing(stop_simulation, _From, State) ->
+    {reply, ok, idle, simulation_stop(State)};
 processing(_Event, _From, State) ->
     {reply, ignored, processing, State}.
 
@@ -101,14 +105,7 @@ handle_sync_event(_Event, _From, StateName, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_info(timeup, processing, State) ->
-    #state{module = Mod, simulation = Simulation} = State,
-    #simulation{params = SP, subscriber = Subscriber} = Simulation,
-    {agents, Agents} = mas_world:get_agents(),
-    mas_sup:stop_simulation(),
-    simulation_teardown(Mod, SP),
-    Result = simulation_result(Mod, SP, Agents),
-    report_result(Result, Subscriber),
-    {next_state, idle, State};
+    {next_state, idle, simulation_stop(State)};
 handle_info(_Event, StateName, State) ->
     {next_state, StateName, State}.
 
@@ -127,6 +124,29 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+simulation_start(SP, Time, Subs, State) ->
+    #state{module = Mod, config = Config} = State,
+    simulation_setup(Mod, SP),
+    mas_sup:start_simulation(SP, Config),
+    schedule_timer(Time),
+    Simulation = simulation_record(SP, Time, Subs),
+    State#state{simulation = Simulation}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+simulation_stop(State = #state{module = Mod, simulation = Simulation}) ->
+    #simulation{params = SP, subscriber = Subscriber} = Simulation,
+    {agents, Agents} = mas_world:get_agents(),
+    mas_sup:stop_simulation(),
+    simulation_teardown(Mod, SP),
+    Result = simulation_result(Mod, SP, Agents),
+    report_result(Result, Subscriber),
+    State#state{simulation = none}.
 
 %%------------------------------------------------------------------------------
 %% @private
