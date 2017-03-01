@@ -1,6 +1,6 @@
 %%%-----------------------------------------------------------------------------
 %%% @doc Simulation coordinator. Starts simulation, retrieves results after
-%%%      specified amount of time, stops simulation.
+%%%      specified amount of time and stops simulation.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
@@ -8,19 +8,23 @@
 
 -include("mas.hrl").
 
--behaviour(gen_server).
+-behaviour(gen_fsm).
 
 %%% API
 -export([start_link/1,
          start_simulation/2]).
 
-%%% Server callbacks
+%%% FSM callbacks
 -export([init/1,
-         handle_call/3,
-         handle_cast/2,
-         handle_info/2,
-         terminate/2,
-         code_change/3]).
+         handle_event/3,
+         handle_sync_event/4,
+         handle_info/3,
+         terminate/3,
+         code_change/4]).
+
+%%% FSM states
+-export([idle/3,
+         processing/3]).
 
 -define(SERVER, ?MODULE).
 
@@ -49,13 +53,13 @@
 %%%=============================================================================
 
 start_link(Config) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
+    gen_fsm:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
 start_simulation(SP, Time) ->
-    gen_server:call(?SERVER, {start_simulation, SP, Time}).
+    gen_fsm:sync_send_event(?SERVER, {start_simulation, SP, Time}).
 
 %%%=============================================================================
-%%% Server callbacks
+%%% FSM callbacks
 %%%=============================================================================
 
 %%------------------------------------------------------------------------------
@@ -63,52 +67,62 @@ start_simulation(SP, Time) ->
 %%------------------------------------------------------------------------------
 init(Config = #config{simulation_mod = Mod, logs_dir = LogsDir}) ->
     mas_reporter:setup(LogsDir),
-    {ok, #state{module = Mod, config = Config}}.
+    {ok, idle, #state{module = Mod, config = Config}}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_call({start_simulation, SP, Time}, {Pid, _Ref}, State) ->
+idle({start_simulation, SP, Time}, {Pid, _Ref}, State) ->
     #state{module = Mod, config = Config} = State,
     simulation_setup(Mod, SP),
     mas_sup:start_simulation(SP, Config),
     schedule_timer(Time),
     Simulation = simulation_record(SP, Time, Pid),
-    {reply, started, State#state{simulation = Simulation}};
-handle_call(_Request, _From, State) ->
-    {reply, ignored, State}.
+    {reply, ok, processing, State#state{simulation = Simulation}};
+idle(_Event, _From, State) ->
+    {reply, ignored, idle, State}.
+
+processing(_Event, _From, State) ->
+    {reply, ignored, processing, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+handle_event(_Event, StateName, State) ->
+    {next_state, StateName, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(timeup, State = #state{module = Mod, simulation = Simulation}) ->
+handle_sync_event(_Event, _From, StateName, State) ->
+    {next_state, StateName, State}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+handle_info(timeup, processing, State) ->
+    #state{module = Mod, simulation = Simulation} = State,
     #simulation{params = SP, subscriber = Subscriber} = Simulation,
     {agents, Agents} = mas_world:get_agents(),
     mas_sup:stop_simulation(),
     simulation_teardown(Mod, SP),
     Result = simulation_result(Mod, SP, Agents),
     report_result(Result, Subscriber),
-    {noreply, State};
-handle_info(_Info, State) ->
-    {noreply, State}.
+    {next_state, idle, State};
+handle_info(_Event, StateName, State) ->
+    {next_state, StateName, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(_Reason, _StateName, _State) ->
     ok.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+code_change(_OldVsn, StateName, State, _Extra) ->
+    {next_state, StateName, State}.
 
 %%%=============================================================================
 %%% Internal functions
