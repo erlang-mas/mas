@@ -222,7 +222,7 @@ setup_metrics(Behaviours, #config{write_interval = WriteInterval}) ->
 %% @private
 %%------------------------------------------------------------------------------
 subscribe_metric(Name, WriteInterval) ->
-    Metric = [node(), self(), Name],
+    Metric = [self(), Name],
     mas_reporter:subscribe(Metric, WriteInterval).
 
 %%------------------------------------------------------------------------------
@@ -241,6 +241,6 @@ schedule_metrics_update(#config{write_interval = WriteInterval}) ->
 %% @private
 %%------------------------------------------------------------------------------
 update_metrics(#state{metrics = Metrics, behaviours_counter = Counter}) ->
-    lists:foreach(fun(Metric = [_Node, _Pid, Behaviour]) ->
+    lists:foreach(fun(Metric = [_Pid, Behaviour]) ->
                       exometer:update(Metric, dict:fetch(Behaviour, Counter))
                   end, Metrics).
