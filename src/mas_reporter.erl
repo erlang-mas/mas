@@ -6,10 +6,10 @@
 -module(mas_reporter).
 
 %%% API
--export([setup/1,
+-export([setup/2,
          teardown/0,
-         subscribe/2,
-         subscribe/4,
+         subscribe/1,
+         subscribe/3,
          unsubscribe/1]).
 
 %%%=============================================================================
@@ -21,8 +21,10 @@
 %%%      inside provided logs directory.
 %%% @end
 %%%-----------------------------------------------------------------------------
-setup(LogsDir) ->
-    exometer_report:add_reporter(exometer_report_fs, [{base_dir, LogsDir}]).
+setup(LogsDir, WriteInterval) ->
+    exometer_report:add_reporter(exometer_report_fs, [{base_dir, LogsDir}]),
+    exometer_report:set_interval(exometer_report_fs, write_interval,
+                                 WriteInterval).
 
 %%%-----------------------------------------------------------------------------
 %%% @doc Removes reporter and all its subscriptions.
@@ -36,18 +38,18 @@ teardown() ->
 %%%      Includes given write interval.
 %%% @end
 %%%-----------------------------------------------------------------------------
-subscribe(Metric, WriteInterval) ->
-    subscribe(Metric, counter, value, WriteInterval).
+subscribe(Metric) ->
+    subscribe(Metric, counter, value).
 
 %%%-----------------------------------------------------------------------------
 %%% @doc Creates metric with provided type, data point and write interval.
 %%%      Subscribes metric to the reporter.
 %%% @end
 %%%-----------------------------------------------------------------------------
-subscribe(Metric, Type, DataPoint, WriteInterval) ->
+subscribe(Metric, Type, DataPoint) ->
     exometer:new(Metric, Type),
     exometer_report:subscribe(exometer_report_fs, Metric, DataPoint,
-                              WriteInterval),
+                              write_interval),
     Metric.
 
 %%%-----------------------------------------------------------------------------

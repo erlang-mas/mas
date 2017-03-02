@@ -131,7 +131,7 @@ init_state(SP, Config = #config{population_mod = Mod}) ->
         module             = Mod,
         agents             = generate_population(Mod, SP, Config),
         sim_params         = SP,
-        metrics            = setup_metrics(Behaviours, Config),
+        metrics            = setup_metrics(Behaviours),
         behaviours_counter = mas_counter:new(Behaviours),
         config             = Config
     }.
@@ -215,15 +215,14 @@ count_behaviours(Arenas) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-setup_metrics(Behaviours, #config{write_interval = WriteInterval}) ->
-    [subscribe_metric(Behaviour, WriteInterval) || Behaviour <- Behaviours].
+setup_metrics(Behaviours) ->
+    [subscribe_metric(Behaviour) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-subscribe_metric(Name, WriteInterval) ->
-    Metric = [self(), Name],
-    mas_reporter:subscribe(Metric, WriteInterval).
+subscribe_metric(Name) ->
+    mas_reporter:subscribe([self(), Name]).
 
 %%------------------------------------------------------------------------------
 %% @private

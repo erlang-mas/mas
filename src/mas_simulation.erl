@@ -75,9 +75,9 @@ stop_simulation() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(Config = #config{simulation_mod = Mod, logs_dir = LogsDir}) ->
+init(Config = #config{simulation_mod = Mod}) ->
     process_flag(trap_exit, true),
-    mas_reporter:setup(LogsDir),
+    setup_reporter(Config),
     {ok, idle, #state{module = Mod, config = Config}}.
 
 %%------------------------------------------------------------------------------
@@ -131,6 +131,12 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+setup_reporter(#config{logs_dir = LogsDir, write_interval = WriteInterval}) ->
+    mas_reporter:setup(LogsDir, WriteInterval).
 
 %%------------------------------------------------------------------------------
 %% @private
