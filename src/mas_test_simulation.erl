@@ -7,11 +7,11 @@
          simulation_result/2]).
 
 simulation_setup(_SP) ->
-    io:format("Simulation setup~n", []).
+    io:format("Simulation setup~n").
 
 simulation_teardown(_SP) ->
-    io:format("Simulation teardown~n", []).
+    io:format("Simulation teardown~n").
 
 simulation_result(_SP, Agents) ->
-    io:format("Simulation result~n", []),
+    io:format("Number of results:~p~n", [length(Agents)]),
     Agents.

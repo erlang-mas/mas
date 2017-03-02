@@ -71,8 +71,7 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 init(#config{population_count = Count, topology = Topology}) ->
     self() ! spawn_populations,
-    {ok, #state{population_count = Count,
-                topology = Topology}}.
+    {ok, #state{population_count = Count, topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private

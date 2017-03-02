@@ -35,7 +35,7 @@ start_link(Config) ->
 
 %%------------------------------------------------------------------------------
 %% @doc Migrates multiple agents at once from calling population to target
-%%      population on node calculated based on configured topology.
+%%      population residing on node calculated based on configured topology.
 %% @end
 %%------------------------------------------------------------------------------
 migrate_agents(Agents) ->
@@ -51,8 +51,7 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 init(#config{nodes_topology = Topology}) ->
     net_kernel:monitor_nodes(true),
-    {ok, #state{nodes = discover_nodes(),
-                topology = Topology}}.
+    {ok, #state{nodes = discover_nodes(), topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private

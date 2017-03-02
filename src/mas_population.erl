@@ -147,15 +147,11 @@ generate_population(Mod, SP, #config{population_size = Size}) ->
 %%------------------------------------------------------------------------------
 process_population(State = #state{behaviours_counter = Counter}) ->
     TaggedAgents = tag_agents(State),
-
     Arenas = form_arenas(TaggedAgents),
     ProcessedArenas = process_arenas(Arenas, State),
-
     NewAgents = normalize(ProcessedArenas),
-
     BehaviourCounts = count_behaviours(Arenas),
     NewCounter = mas_counter:update(BehaviourCounts, Counter),
-
     State#state{agents = NewAgents, behaviours_counter = NewCounter}.
 
 %%------------------------------------------------------------------------------

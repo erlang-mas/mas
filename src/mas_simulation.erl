@@ -1,6 +1,7 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Simulation coordinator. Starts simulation, retrieves results after
-%%%      specified amount of time and stops simulation.
+%%% @doc Simulation coordinator. Starts simulation with provided parameters,
+%%%      automaticaly stops simulation and retrieves results after specified
+%%%      amount of time, sends results back to simulation initiator.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
@@ -28,12 +29,6 @@
          processing/3]).
 
 -define(SERVER, ?MODULE).
-
--record(simulation, {params     :: sim_params(),
-                     time       :: pos_integer(),
-                     subscriber :: pid()}).
-
--type simulation() :: #simulation{}.
 
 -record(state, {module     :: module(),
                 simulation :: simulation(),
@@ -139,12 +134,12 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-simulation_start(SP, Time, Subs, State) ->
+simulation_start(SP, Time, Subscriber, State) ->
     #state{module = Mod, config = Config} = State,
     simulation_setup(Mod, SP),
     mas_sup:start_simulation(SP, Config),
     schedule_timer(Time),
-    Simulation = simulation_record(SP, Time, Subs),
+    Simulation = simulation_record(SP, Time, Subscriber),
     State#state{simulation = Simulation}.
 
 %%------------------------------------------------------------------------------
