@@ -54,11 +54,11 @@ stop_simulation() ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     Config = mas_config:fetch_all(),
-    {ok, {{one_for_all, 0, 1},
+    {ok, {{one_for_all, 1, 60},
      [
       {mas_simulation,
        {mas_simulation, start_link, [Config]},
-       temporary, 1000, worker, [mas_simulation]
+       permanent, 1000, worker, [mas_simulation]
       }
      ]
     }}.
