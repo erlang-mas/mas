@@ -76,6 +76,7 @@ stop_simulation() ->
 %% @private
 %%------------------------------------------------------------------------------
 init(Config = #config{simulation_mod = Mod, logs_dir = LogsDir}) ->
+    process_flag(trap_exit, true),
     mas_reporter:setup(LogsDir),
     {ok, idle, #state{module = Mod, config = Config}}.
 
@@ -119,7 +120,7 @@ handle_info(_Event, StateName, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 terminate(_Reason, _StateName, _State) ->
-    ok.
+    mas_reporter:teardown().
 
 %%------------------------------------------------------------------------------
 %% @private

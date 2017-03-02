@@ -7,6 +7,7 @@
 
 %%% API
 -export([setup/1,
+         teardown/0,
          subscribe/2,
          subscribe/4,
          unsubscribe/1]).
@@ -22,6 +23,13 @@
 %%%-----------------------------------------------------------------------------
 setup(LogsDir) ->
     exometer_report:add_reporter(exometer_report_fs, [{base_dir, LogsDir}]).
+
+%%%-----------------------------------------------------------------------------
+%%% @doc Removes reporter and all its subscriptions.
+%%% @end
+%%%-----------------------------------------------------------------------------
+teardown() ->
+    exometer_report:remove_reporter(exometer_report_fs).
 
 %%%-----------------------------------------------------------------------------
 %%% @doc Creates metric with default type (counter) and data point (value).
