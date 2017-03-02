@@ -98,7 +98,10 @@ code_change(_OldVsn, State, _Extra) ->
 %% @private
 %%------------------------------------------------------------------------------
 discover_nodes() ->
-    net_adm:world().
+    case net_adm:host_file() of
+        {error, _Reason} -> [];
+        Hosts -> net_adm:world(Hosts)
+    end.
 
 %%------------------------------------------------------------------------------
 %% @private
