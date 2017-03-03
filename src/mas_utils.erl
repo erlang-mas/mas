@@ -11,7 +11,8 @@
          sample/1,
          index_of/2,
          timestamp/0,
-         to_string/1]).
+         to_string/1,
+         seed_random/0]).
 
 %%%=============================================================================
 %%% API functions
@@ -69,6 +70,16 @@ to_string(X) when is_list(X) ->
     X;
 to_string(X) ->
     io_lib:format("~p", [X]).
+
+%%------------------------------------------------------------------------------
+%% @doc Seeds random number generator for current process.
+%% @end
+%%------------------------------------------------------------------------------
+seed_random() ->
+    A1 = erlang:phash2([node()]),
+    A2 = erlang:monotonic_time(),
+    A3 = erlang:unique_integer(),
+    rand:seed(exs1024, {A1, A2, A3}).
 
 %%%=============================================================================
 %%% Internal functions

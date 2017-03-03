@@ -69,6 +69,7 @@ add_agents(Pid, Agents) ->
 %% @private
 %%------------------------------------------------------------------------------
 init({SP, Config}) ->
+    mas_utils:seed_random(),
     process_flag(trap_exit, true),
     State = init_state(SP, Config),
     schedule_metrics_update(Config),
