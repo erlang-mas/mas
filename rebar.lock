@@ -8,7 +8,7 @@
   0},
  {<<"exometer_fs">>,
   {git,"https://github.com/erlang-mas/exometer-fs.git",
-       {ref,"566b057d171cef6896fd54602e4d8549e0b99194"}},
+       {ref,"6161460c30e6bf86d8c9f737ba6e148bfb0aabee"}},
   0},
  {<<"folsom">>,
   {git,"git://github.com/folsom-project/folsom",
