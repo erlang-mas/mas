@@ -101,9 +101,8 @@ handle_info(process_population, State) ->
     self() ! process_population,
     {noreply, NewState};
 handle_info(update_metrics, State = #state{config = Config}) ->
-    update_metrics(State),
     schedule_metrics_update(Config),
-    {noreply, State};
+    {noreply, update_metrics(State)};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -240,7 +239,10 @@ schedule_metrics_update(#config{write_interval = WriteInterval}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-update_metrics(#state{metrics = Metrics, behaviours_counter = Counter}) ->
+update_metrics(State) ->
+    #state{metrics = Metrics, behaviours_counter = Counter} = State,
     lists:foreach(fun(Metric = [_Pid, Behaviour]) ->
                       exometer:update(Metric, dict:fetch(Behaviour, Counter))
-                  end, Metrics).
+                  end, Metrics),
+    NewCounter = mas_counter:reset(Counter),
+    State#state{behaviours_counter = NewCounter}.
