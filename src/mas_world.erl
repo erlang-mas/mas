@@ -12,9 +12,8 @@
 %%% API
 -export([start_link/1,
          get_agents/0,
-         put_agents/1,
-         migrate_agent/1,
-         migrate_agents/1]).
+         migrate_agents/1,
+         migrate_agents/2]).
 
 %%% Server callbacks
 -export([init/1,
@@ -38,29 +37,26 @@ start_link(Config) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
 %%------------------------------------------------------------------------------
-%% @doc Collects agents from all spawned populations.
+%% @doc Collects agents from all populations.
 %% @end
 %%------------------------------------------------------------------------------
 get_agents() ->
     gen_server:call(?SERVER, get_agents).
 
-put_agents(Agents) ->
-    gen_server:call(?SERVER, {put_agents, Agents}).
-
 %%------------------------------------------------------------------------------
-%% @doc Migrates single agent from calling population to target population
-%%      calculated based on configured topology.
-%% @end
-%%------------------------------------------------------------------------------
-migrate_agent(Agent) ->
-    gen_server:cast(?SERVER, {migrate_agent, Agent, self()}).
-
-%%------------------------------------------------------------------------------
-%% @doc Migrates multiple agents separately using migrate_agent/1.
+%% @doc Migrates partitioned agent groups into target populations calculated
+%%      based on configured topology.
 %% @end
 %%------------------------------------------------------------------------------
 migrate_agents(Agents) ->
-    lists:foreach(fun migrate_agent/1, Agents).
+    gen_server:cast(?SERVER, {migrate_agents, Agents, self()}).
+
+%%------------------------------------------------------------------------------
+%% @doc Migrates agents group into world residing on distributed node.
+%% @end
+%%------------------------------------------------------------------------------
+migrate_agents(Node, Agents) ->
+    gen_server:cast({?SERVER, Node}, {migrate_agents, Agents, none}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -79,17 +75,20 @@ init(#config{population_count = Count, topology = Topology}) ->
 handle_call(get_agents, _From, State = #state{populations = Populations}) ->
     Agents = collect_agents(Populations),
     {reply, {agents, Agents}, State};
-handle_call({put_agents, Agents}, _From, State) ->
-    do_put_agents(Agents, State),
-    {reply, ok, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agent, Agent, Source}, State) ->
-    do_migrate_agent(Agent, Source, State),
+handle_cast({migrate_agents, Agents, Source}, State) ->
+    #state{populations = Populations, topology = Topology} = State,
+    case mas_topology:destinations(Topology, Populations, Source) of
+        {ok, Destinations} ->
+            mas_migration:send_to_populations(Destinations, Agents);
+        no_destination ->
+            mas_migration:send_back(Source, Agents)
+    end,
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -124,25 +123,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 spawn_populations(Count) ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-do_migrate_agent(Agent, Source, State) ->
-    #state{populations = Populations, topology = Topology} = State,
-    case mas_topology:destination(Topology, Source, Populations) of
-        {ok, Destination} ->
-            mas_population:add_agent(Destination, Agent);
-        no_destination ->
-            mas_population:add_agent(Source, Agent)
-    end.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-do_put_agents(Agents, #state{populations = Populations}) ->
-    Destination = mas_utils:sample(Populations),
-    mas_population:add_agents(Destination, Agents).
 
 %%------------------------------------------------------------------------------
 %% @private

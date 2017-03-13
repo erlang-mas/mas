@@ -34,13 +34,12 @@ start_link(Config) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
 
 %%------------------------------------------------------------------------------
-%% @doc Migrates multiple agents at once from calling population to target
-%%      population residing on node calculated based on configured topology.
+%% @doc Migrates partitioned agent groups between populations residing on
+%%      different distributed nodes based on configured topology.
 %% @end
 %%------------------------------------------------------------------------------
 migrate_agents(Agents) ->
-    Source = {self(), node()},
-    gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
+    gen_server:cast(?SERVER, {migrate_agents, Agents, {self(), node()}}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -62,8 +61,14 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, Source}, State) ->
-    do_migrate_agents(Agents, Source, State),
+handle_cast({migrate_agents, Agents, _Source = {Pid, Node}}, State) ->
+    #state{nodes = Nodes, topology = Topology} = State,
+    case mas_topology:destinations(Topology, Nodes, Node) of
+        {ok, Destinations} ->
+            mas_migration:send_to_nodes(Destinations, Agents);
+        no_destination ->
+            mas_migration:send_back(Pid, Agents)
+    end,
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -101,18 +106,6 @@ discover_nodes() ->
     case net_adm:host_file() of
         {error, _Reason} -> [];
         Hosts -> net_adm:world(Hosts)
-    end.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-do_migrate_agents(Agents, _Source = {Pid, Node}, State) ->
-    #state{nodes = Nodes, topology = Topology} = State,
-    case mas_topology:destination(Topology, Node, Nodes) of
-        {ok, Destination} ->
-            spawn(Destination, mas_world, put_agents, [Agents]);
-        no_destination ->
-            mas_population:add_agents(Pid, Agents)
     end.
 
 %%------------------------------------------------------------------------------

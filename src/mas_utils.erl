@@ -12,7 +12,8 @@
          index_of/2,
          timestamp/0,
          to_string/1,
-         seed_random/0]).
+         seed_random/0,
+         partition/2]).
 
 %%%=============================================================================
 %%% API functions
@@ -80,6 +81,21 @@ seed_random() ->
     A2 = erlang:monotonic_time(),
     A3 = erlang:unique_integer(),
     rand:seed(exs1024, {A1, A2, A3}).
+
+%%------------------------------------------------------------------------------
+%% @doc Randomly splits list into given number of partitions.
+%% @end
+%%------------------------------------------------------------------------------
+partition(L, 1) ->
+  [L];
+
+partition(L, 2) ->
+  {A, B} = lists:partition(fun(_) -> rand:uniform(2) == 1 end, L),
+  [A, B];
+
+partition(L, N) ->
+  {Chunk, T} = lists:partition(fun(_) -> rand:uniform(N) == 1 end, L),
+  [Chunk | partition(T, N - 1)].
 
 %%%=============================================================================
 %%% Internal functions
