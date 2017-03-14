@@ -11,7 +11,6 @@
 
 %%% API
 -export([start_link/2,
-         add_agent/2,
          add_agents/2,
          get_agents/1]).
 
@@ -55,11 +54,8 @@ start_link(SP, Config) ->
 get_agents(Pid) ->
     gen_server:call(Pid, get_agents).
 
-add_agent(Pid, Agent) ->
-    gen_server:cast(Pid, {add_agent, Agent}).
-
 add_agents(Pid, Agents) ->
-    [add_agent(Pid, Agent) || Agent <- Agents].
+    gen_server:cast(Pid, {add_agents, Agents}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -87,9 +83,8 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({add_agent, Agent}, State = #state{agents = Agents}) ->
-    NewState = State#state{agents = [Agent | Agents]},
-    {noreply, NewState};
+handle_cast({add_agents, NewAgents}, State = #state{agents = Agents}) ->
+    {noreply, State#state{agents = Agents ++ NewAgents}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
