@@ -54,8 +54,7 @@ start_link(Config) ->
 %%------------------------------------------------------------------------------
 %% @doc Starts simulation with provided simulation parameters. Simulation
 %%      terminates automaticaly if given time constraint is a positive integer.
-%%      Otherwise simulation runs infinitely. MAS engine is able to process
-%%      only one simulation at once.
+%%      Otherwise simulation runs infinitely.
 %% @end
 %%------------------------------------------------------------------------------
 start_simulation(SP, Time) ->

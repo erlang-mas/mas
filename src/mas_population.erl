@@ -92,9 +92,8 @@ handle_cast(_Msg, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_info(process_population, State) ->
-    NewState = process_population(State),
     self() ! process_population,
-    {noreply, NewState};
+    {noreply, process_population(State)};
 handle_info(update_metrics, State = #state{config = Config}) ->
     schedule_metrics_update(Config),
     {noreply, update_metrics(State)};

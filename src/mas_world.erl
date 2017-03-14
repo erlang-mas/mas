@@ -73,8 +73,7 @@ init(#config{population_count = Count, topology = Topology}) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_call(get_agents, _From, State = #state{populations = Populations}) ->
-    Agents = collect_agents(Populations),
-    {reply, {agents, Agents}, State};
+    {reply, {agents, collect_agents(Populations)}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
@@ -97,8 +96,7 @@ handle_cast(_Msg, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_info(spawn_populations, State = #state{population_count = Count}) ->
-    Populations = spawn_populations(Count),
-    {noreply, State#state{populations = Populations}};
+    {noreply, State#state{populations = spawn_populations(Count)}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
