@@ -32,7 +32,7 @@ init({SP, Config}) ->
      [
       {mas_population_sup,
        {mas_population_sup, start_link, [SP, Config]},
-       temporary, infinity, supervisor, [mas_population_sup]
+       temporary, 10000, supervisor, [mas_population_sup]
       },
 
       {mas_world,
