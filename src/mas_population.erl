@@ -117,14 +117,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% @private
 %%------------------------------------------------------------------------------
 init_state(SP, Config = #config{population_mod = Mod}) ->
+    Agents = generate_population(Mod, SP, Config),
     Behaviours = behaviours(Mod),
+    BehavioursCounter = mas_counter:new(Behaviours),
     subscribe_metrics(Behaviours),
     #state{
-        module             = Mod,
-        agents             = generate_population(Mod, SP, Config),
-        sim_params         = SP,
-        behaviours_counter = mas_counter:new(Behaviours),
-        config             = Config
+        module = Mod,
+        agents = Agents,
+        sim_params = SP,
+        behaviours_counter = BehavioursCounter,
+        config = Config
     }.
 
 %%------------------------------------------------------------------------------
