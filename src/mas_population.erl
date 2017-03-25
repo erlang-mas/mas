@@ -22,14 +22,10 @@
          terminate/2,
          code_change/3]).
 
--type metric()          :: [any()].
--type metrics_counter() :: dict:dict(term(), integer()).
-
 -record(state, {module             :: module(),
                 agents             :: [agent()],
                 sim_params         :: sim_params(),
-                metrics            :: [metric()],
-                behaviours_counter :: metrics_counter(),
+                behaviours_counter :: counter(),
                 config             :: mas:config()}).
 
 %%%=============================================================================
@@ -103,8 +99,9 @@ handle_info(_Info, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-terminate(_Reason, #state{metrics = Metrics}) ->
-    lists:foreach(fun unsubscribe_metric/1, Metrics).
+terminate(_Reason, #state{behaviours_counter = Counter}) ->
+    Behaviours = dict:fetch_keys(Counter),
+    unsubscribe_metrics(Behaviours).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -121,11 +118,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 init_state(SP, Config = #config{population_mod = Mod}) ->
     Behaviours = behaviours(Mod),
+    subscribe_metrics(Behaviours),
     #state{
         module             = Mod,
         agents             = generate_population(Mod, SP, Config),
         sim_params         = SP,
-        metrics            = setup_metrics(Behaviours),
         behaviours_counter = mas_counter:new(Behaviours),
         config             = Config
     }.
@@ -209,20 +206,14 @@ count_behaviours(Arenas) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-setup_metrics(Behaviours) ->
-    [subscribe_metric(Behaviour) || Behaviour <- Behaviours].
+subscribe_metrics(Behaviours) ->
+    [mas_reporter:subscribe(metric(Behaviour)) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-subscribe_metric(Name) ->
-    mas_reporter:subscribe([self(), Name]).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-unsubscribe_metric(Metric) ->
-    mas_reporter:unsubscribe(Metric).
+unsubscribe_metrics(Behaviours) ->
+    [mas_reporter:unsubscribe(metric(Behaviour)) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -233,10 +224,15 @@ schedule_metrics_update(#config{write_interval = WriteInterval}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-update_metrics(State) ->
-    #state{metrics = Metrics, behaviours_counter = Counter} = State,
-    lists:foreach(fun(Metric = [_Pid, Behaviour]) ->
-                      exometer:update(Metric, dict:fetch(Behaviour, Counter))
-                  end, Metrics),
-    NewCounter = mas_counter:reset(Counter),
-    State#state{behaviours_counter = NewCounter}.
+update_metrics(State = #state{behaviours_counter = Counter}) ->
+    Behaviours = dict:fetch_keys(Counter),
+    lists:foreach(fun(Behaviour) ->
+                      mas_reporter:update(metric(Behaviour),
+                                          dict:fetch(Behaviour, Counter))
+                  end, Behaviours),
+    State#state{behaviours_counter = mas_counter:reset(Counter)}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+metric(Name) -> [self(), Name].

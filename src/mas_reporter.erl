@@ -10,7 +10,8 @@
          teardown/0,
          subscribe/1,
          subscribe/3,
-         unsubscribe/1]).
+         unsubscribe/1,
+         update/2]).
 
 %%%=============================================================================
 %%% API functions
@@ -60,3 +61,10 @@ subscribe(Metric, Type, DataPoint) ->
 unsubscribe(Metric) ->
     exometer_report:unsubscribe_all(exometer_report_fs, Metric),
     exometer:delete(Metric).
+
+%%%-----------------------------------------------------------------------------
+%%% @doc Updates metric with given value.
+%%% @end
+%%%-----------------------------------------------------------------------------
+update(Metric, Value) ->
+    exometer:update(Metric, Value).

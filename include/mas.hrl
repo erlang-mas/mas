@@ -19,3 +19,4 @@
 -type agent()      :: any().
 -type behaviour()  :: atom().
 -type topology()   :: atom().
+-type counter()    :: dict:dict(term(), integer()).
