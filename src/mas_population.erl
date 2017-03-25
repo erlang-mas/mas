@@ -207,12 +207,14 @@ count_behaviours(Arenas) ->
 %% @private
 %%------------------------------------------------------------------------------
 subscribe_metrics(Behaviours) ->
+    mas_reporter:subscribe(metric(agents_count), gauge, value),
     [mas_reporter:subscribe(metric(Behaviour)) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 unsubscribe_metrics(Behaviours) ->
+    mas_reporter:unsubscribe(metric(agents_count)),
     [mas_reporter:unsubscribe(metric(Behaviour)) || Behaviour <- Behaviours].
 
 %%------------------------------------------------------------------------------
@@ -224,7 +226,9 @@ schedule_metrics_update(#config{write_interval = WriteInterval}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-update_metrics(State = #state{behaviours_counter = Counter}) ->
+update_metrics(State) ->
+    #state{agents = Agents, behaviours_counter = Counter} = State,
+    mas_reporter:update(metric(agents_count), length(Agents)),
     Behaviours = dict:fetch_keys(Counter),
     lists:foreach(fun(Behaviour) ->
                       mas_reporter:update(metric(Behaviour),
