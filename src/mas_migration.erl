@@ -51,11 +51,13 @@ group(Destinations, Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+send_to_node({_Node, []}) -> ok;
 send_to_node({Node, Agents}) ->
     mas_world:migrate_agents(Node, Agents).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+send_to_population({_Population, []}) -> ok;
 send_to_population({Population, Agents}) ->
     mas_population:add_agents(Population, Agents).
