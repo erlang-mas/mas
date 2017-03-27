@@ -48,7 +48,9 @@ start_link(SP, Config) ->
     gen_server:start_link(?MODULE, {SP, Config}, []).
 
 get_agents(Pid) ->
-    gen_server:call(Pid, get_agents).
+    % Waiting infinitely for response probably not a very good idea. Treat as
+    % temporary solution.
+    gen_server:call(Pid, get_agents, infinity).
 
 add_agents(Pid, Agents) ->
     gen_server:cast(Pid, {add_agents, Agents}).
