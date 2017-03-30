@@ -4,7 +4,7 @@
   {registered,
     [
      mas_world,
-     mas_broker,
+     mas_universe,
      mas_population_sup,
      mas_simulation_sup,
      mas_simulation

@@ -209,7 +209,7 @@ apply_meetings({migration, Agents}, _State) ->
     mas_world:migrate_agents(Agents),
     [];
 apply_meetings({node_migration, Agents}, _State) ->
-    mas_broker:migrate_agents(Agents),
+    mas_universe:migrate_agents(Agents),
     [];
 apply_meetings(Arena, #state{module = Mod, sim_params = SP}) ->
     Mod:meeting(Arena, SP).

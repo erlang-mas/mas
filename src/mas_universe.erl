@@ -1,9 +1,10 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Monitores nodes. Handles agent migrations between nodes.
+%%% @doc Discovers universe of interconnected nodes and handles agent migrations
+%%%      between them.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
--module(mas_broker).
+-module(mas_universe).
 
 -include("mas.hrl").
 

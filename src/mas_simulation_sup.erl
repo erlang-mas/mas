@@ -40,9 +40,9 @@ init({SP, Config}) ->
        temporary, 1000, worker, [mas_world]
       },
 
-      {mas_broker,
-       {mas_broker, start_link, [Config]},
-       temporary, 1000, worker, [mas_broker]
+      {mas_universe,
+       {mas_universe, start_link, [Config]},
+       temporary, 1000, worker, [mas_universe]
       }
      ]
     }}.
