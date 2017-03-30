@@ -22,12 +22,14 @@
          terminate/2,
          code_change/3]).
 
--record(state, {module             :: module(),
-                agents             :: [agent()],
-                sim_params         :: sim_params(),
-                behaviours_counter :: counter(),
-                metrics            :: [metric()],
-                config             :: mas:config()}).
+-record(state, {module                     :: module(),
+                agents                     :: [agent()],
+                sim_params                 :: sim_params(),
+                behaviours_counter         :: counter(),
+                metrics                    :: [metric()],
+                migration_probability      :: float(),
+                node_migration_probability :: float(),
+                write_interval             :: pos_integer()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -63,11 +65,11 @@ add_agents(Pid, Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init({SP, Config}) ->
+init({SP, Config = #config{write_interval = WriteInterval}}) ->
     process_flag(trap_exit, true),
     mas_utils:seed_random(),
     State = init_state(SP, Config),
-    schedule_metrics_update(Config),
+    schedule_metrics_update(WriteInterval),
     self() ! process_population,
     {ok, State}.
 
@@ -94,8 +96,9 @@ handle_info(process_population, State) ->
     self() ! process_population,
     {noreply, process_population(State)};
 handle_info(update_metrics, State) ->
-    #state{behaviours_counter = Counter, config = Config} = State,
-    schedule_metrics_update(Config),
+    #state{behaviours_counter = Counter,
+           write_interval = WriteInterval} = State,
+    schedule_metrics_update(WriteInterval),
     update_metrics(State),
     NewCounter = mas_counter:reset(Counter),
     {noreply, State#state{behaviours_counter = NewCounter}};
@@ -123,7 +126,11 @@ code_change(_OldVsn, State, _Extra) ->
 %% @private
 %%------------------------------------------------------------------------------
 init_state(SP, Config) ->
-    #config{population_mod = Mod, population_size = Size} = Config,
+    #config{population_mod = Mod,
+            population_size = Size,
+            migration_probability = MP,
+            node_migration_probability = NMP,
+            write_interval = WriteInterval} = Config,
     Agents = generate_population(Mod, SP, Size),
     Behaviours = behaviours(Mod),
     BehavioursCounter = mas_counter:new(Behaviours),
@@ -134,7 +141,9 @@ init_state(SP, Config) ->
         behaviours_counter = BehavioursCounter,
         metrics = Metrics,
         sim_params = SP,
-        config = Config
+        migration_probability = MP,
+        node_migration_probability = NMP,
+        write_interval = WriteInterval
     }.
 
 %%------------------------------------------------------------------------------
@@ -150,7 +159,7 @@ process_population(State = #state{behaviours_counter = Counter}) ->
     TaggedAgents = tag_agents(State),
     Arenas = form_arenas(TaggedAgents),
     ProcessedArenas = process_arenas(Arenas, State),
-    NewAgents = normalize(ProcessedArenas),
+    NewAgents = extract_agents(ProcessedArenas),
     BehaviourCounts = count_behaviours(Arenas),
     NewCounter = mas_counter:update(BehaviourCounts, Counter),
     State#state{agents = NewAgents, behaviours_counter = NewCounter}.
@@ -164,9 +173,11 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, #state{module = Mod, sim_params = SP, config = Config}) ->
-    #config{migration_probability = MP,
-            node_migration_probability = NMP} = Config,
+behaviour(Agent, State) ->
+    #state{module = Mod,
+           sim_params = SP,
+           migration_probability = MP,
+           node_migration_probability = NMP} = State,
     case rand:uniform() of
         R when R < MP       -> migration;
         R when R < MP + NMP -> node_migration;
@@ -195,16 +206,18 @@ process_arenas(Arenas, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 apply_meetings({migration, Agents}, _State) ->
-    mas_world:migrate_agents(Agents), [];
+    mas_world:migrate_agents(Agents),
+    [];
 apply_meetings({node_migration, Agents}, _State) ->
-    mas_broker:migrate_agents(Agents), [];
+    mas_broker:migrate_agents(Agents),
+    [];
 apply_meetings(Arena, #state{module = Mod, sim_params = SP}) ->
     Mod:meeting(Arena, SP).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-normalize(Arenas) ->
+extract_agents(Arenas) ->
     mas_utils:shuffle(lists:flatten(Arenas)).
 
 %%------------------------------------------------------------------------------
@@ -253,5 +266,5 @@ update_metric(Metric = [_Pid, Behaviour], State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-schedule_metrics_update(#config{write_interval = WriteInterval}) ->
+schedule_metrics_update(WriteInterval) ->
     erlang:send_after(WriteInterval, self(), update_metrics).
