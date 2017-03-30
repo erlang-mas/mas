@@ -26,6 +26,7 @@
                 agents             :: [agent()],
                 sim_params         :: sim_params(),
                 behaviours_counter :: counter(),
+                metrics            :: [metric()],
                 config             :: mas:config()}).
 
 %%%=============================================================================
@@ -92,18 +93,21 @@ handle_cast(_Msg, State) ->
 handle_info(process_population, State) ->
     self() ! process_population,
     {noreply, process_population(State)};
-handle_info(update_metrics, State = #state{config = Config}) ->
+handle_info(update_metrics, State) ->
+    #state{behaviours_counter = Counter, config = Config} = State,
     schedule_metrics_update(Config),
-    {noreply, update_metrics(State)};
+    update_metrics(State),
+    NewCounter = mas_counter:reset(Counter),
+    {noreply, State#state{behaviours_counter = NewCounter}};
 handle_info(_Info, State) ->
     {noreply, State}.
+
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-terminate(_Reason, #state{behaviours_counter = Counter}) ->
-    Behaviours = dict:fetch_keys(Counter),
-    unsubscribe_metrics(Behaviours).
+terminate(_Reason, State) ->
+    unsubscribe_metrics(State).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -122,12 +126,13 @@ init_state(SP, Config = #config{population_mod = Mod}) ->
     Agents = generate_population(Mod, SP, Config),
     Behaviours = behaviours(Mod),
     BehavioursCounter = mas_counter:new(Behaviours),
-    subscribe_metrics(Behaviours),
+    Metrics = subscribe_metrics(Behaviours),
     #state{
         module = Mod,
         agents = Agents,
         sim_params = SP,
         behaviours_counter = BehavioursCounter,
+        metrics = Metrics,
         config = Config
     }.
 
@@ -211,36 +216,41 @@ count_behaviours(Arenas) ->
 %% @private
 %%------------------------------------------------------------------------------
 subscribe_metrics(Behaviours) ->
-    mas_reporter:subscribe(metric(agents_count), gauge, value),
-    [mas_reporter:subscribe(metric(Behaviour)) || Behaviour <- Behaviours].
+    Metrics = [[self(), Metric] || Metric <- [agents_count | Behaviours]],
+    [subscribe_metric(Metric) || Metric <- Metrics],
+    Metrics.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-unsubscribe_metrics(Behaviours) ->
-    mas_reporter:unsubscribe(metric(agents_count)),
-    [mas_reporter:unsubscribe(metric(Behaviour)) || Behaviour <- Behaviours].
+subscribe_metric(Metric = [_Pid, agents_count]) ->
+    mas_reporter:subscribe(Metric, gauge, value);
+subscribe_metric(Metric) ->
+    mas_reporter:subscribe(Metric).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+unsubscribe_metrics(#state{metrics = Metrics}) ->
+    [mas_reporter:unsubscribe(Metric) || Metric <- Metrics].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+update_metrics(State = #state{metrics = Metrics}) ->
+    [update_metric(Metric, State) || Metric <- Metrics].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+update_metric(Metric = [_Pid, agents_count], #state{agents = Agents}) ->
+    mas_reporter:update(Metric, length(Agents));
+update_metric(Metric = [_Pid, Behaviour], State) ->
+    #state{behaviours_counter = Counter} = State,
+    mas_reporter:update(Metric, dict:fetch(Behaviour, Counter)).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 schedule_metrics_update(#config{write_interval = WriteInterval}) ->
     erlang:send_after(WriteInterval, self(), update_metrics).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-update_metrics(State) ->
-    #state{agents = Agents, behaviours_counter = Counter} = State,
-    mas_reporter:update(metric(agents_count), length(Agents)),
-    Behaviours = dict:fetch_keys(Counter),
-    lists:foreach(fun(Behaviour) ->
-                      mas_reporter:update(metric(Behaviour),
-                                          dict:fetch(Behaviour, Counter))
-                  end, Behaviours),
-    State#state{behaviours_counter = mas_counter:reset(Counter)}.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-metric(Name) -> [self(), Name].

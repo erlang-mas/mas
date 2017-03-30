@@ -20,3 +20,4 @@
 -type behaviour()  :: atom().
 -type topology()   :: atom().
 -type counter()    :: dict:dict(term(), integer()).
+-type metric()     :: list().
