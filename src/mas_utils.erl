@@ -87,15 +87,15 @@ seed_random() ->
 %% @end
 %%------------------------------------------------------------------------------
 partition(L, 1) ->
-  [L];
+    [L];
 
 partition(L, 2) ->
-  {A, B} = lists:partition(fun(_) -> rand:uniform(2) == 1 end, L),
-  [A, B];
+    {A, B} = lists:partition(fun(_) -> rand:uniform(2) == 1 end, L),
+    [A, B];
 
 partition(L, N) ->
-  {Chunk, T} = lists:partition(fun(_) -> rand:uniform(N) == 1 end, L),
-  [Chunk | partition(T, N - 1)].
+    {Chunk, T} = lists:partition(fun(_) -> rand:uniform(N) == 1 end, L),
+    [Chunk | partition(T, N - 1)].
 
 %%%=============================================================================
 %%% Internal functions
