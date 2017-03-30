@@ -122,24 +122,25 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init_state(SP, Config = #config{population_mod = Mod}) ->
-    Agents = generate_population(Mod, SP, Config),
+init_state(SP, Config) ->
+    #config{population_mod = Mod, population_size = Size} = Config,
+    Agents = generate_population(Mod, SP, Size),
     Behaviours = behaviours(Mod),
     BehavioursCounter = mas_counter:new(Behaviours),
     Metrics = subscribe_metrics(Behaviours),
     #state{
         module = Mod,
         agents = Agents,
-        sim_params = SP,
         behaviours_counter = BehavioursCounter,
         metrics = Metrics,
+        sim_params = SP,
         config = Config
     }.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-generate_population(Mod, SP, #config{population_size = Size}) ->
+generate_population(Mod, SP, Size) ->
     [Mod:initial_agent(SP) || _ <- lists:seq(1, Size)].
 
 %%------------------------------------------------------------------------------
