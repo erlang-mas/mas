@@ -46,7 +46,7 @@ send_back(Source, Agents) -> send_to_population({Source, Agents}).
 %%------------------------------------------------------------------------------
 group(Destinations, Agents) ->
     AgentGroups = mas_utils:partition(Agents, length(Destinations)),
-    lists:zip(Destinations, AgentGroups).
+    lists:zip(mas_utils:shuffle(Destinations), AgentGroups).
 
 %%------------------------------------------------------------------------------
 %% @private
