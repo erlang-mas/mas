@@ -23,6 +23,7 @@
          code_change/3]).
 
 -record(state, {module                     :: module(),
+                population_size            :: pos_integer(),
                 agents                     :: [agent()],
                 sim_params                 :: sim_params(),
                 behaviours_counter         :: counter(),
@@ -137,6 +138,7 @@ init_state(SP) ->
 
     #state{
         module = Mod,
+        population_size = PopulationSize,
         agents = Agents,
         behaviours_counter = BehavioursCounter,
         metrics = Metrics,
@@ -173,16 +175,30 @@ tag_agents(State = #state{agents = Agents}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-behaviour(Agent, State) ->
-    #state{module = Mod,
-           sim_params = SP,
-           migration_probability = MP,
-           node_migration_probability = NMP} = State,
+behaviour(Agent, State = #state{module = Mod, sim_params = SP}) ->
+    {MP, NMP} = migration_probabilities(State),
     case rand:uniform() of
         R when R < MP       -> migration;
         R when R < MP + NMP -> node_migration;
         _                   -> Mod:behaviour(Agent, SP)
     end.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+migration_probabilities(State) ->
+    #state{migration_probability = MP,
+           node_migration_probability = NMP} = State,
+    case ensure_population_size(State) of
+        true -> {MP, NMP};
+        false -> {0.0, 0.0}
+    end.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+ensure_population_size(#state{population_size = Size, agents = Agents}) ->
+    length(Agents) > 0.8 * Size.
 
 %%------------------------------------------------------------------------------
 %% @private
