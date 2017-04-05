@@ -31,12 +31,13 @@ group_by(L) ->
     dict:to_list(Dict).
 
 %%------------------------------------------------------------------------------
-%% @doc Randomly shuffles elements in the list.
+%% @doc Associates each element in the list with a random number. The list is
+%%      then sorted based on the generated number. Repeats the process log(n)
+%%      times to ensure a fair shuffle.
 %% @end
 %%------------------------------------------------------------------------------
-shuffle(L) ->
-    Rand = [{rand:uniform(), N} || N <- L],
-    [X || {_, X} <- lists:sort(Rand)].
+shuffle(List) ->
+   randomize(round(math:log(length(List)) + 0.5), List).
 
 %%------------------------------------------------------------------------------
 %% @doc Picks random element from the list.
@@ -100,6 +101,26 @@ partition(L, N) ->
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+randomize(1, List) ->
+   randomize(List);
+randomize(T, List) ->
+   lists:foldl(fun(_E, Acc) ->
+                  randomize(Acc)
+               end, randomize(List), lists:seq(1, (T - 1))).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+randomize(List) ->
+   D = lists:map(fun(A) ->
+                    {rand:uniform(), A}
+             end, List),
+   {_, D1} = lists:unzip(lists:keysort(1, D)),
+   D1.
 
 %%------------------------------------------------------------------------------
 %% @private
