@@ -1,3 +1,4 @@
+{"1.1.0",
 [{<<"bear">>,
   {git,"git://github.com/boundary/bear.git",
        {ref,"119234548783af19b8ec75c879c5062676b92571"}},
@@ -14,10 +15,12 @@
   {git,"git://github.com/folsom-project/folsom",
        {ref,"38e2cce7c64ce1f0a3a918d90394cfc0a940b1ba"}},
   1},
+ {<<"goldrush">>,{pkg,<<"goldrush">>,<<"0.1.9">>},1},
  {<<"hut">>,
   {git,"git://github.com/tolbrino/hut.git",
        {ref,"025540398478ab6f95932c3234382ac5bb21ad3e"}},
   1},
+ {<<"lager">>,{pkg,<<"lager">>,<<"3.2.4">>},0},
  {<<"meck">>,
   {git,"git://github.com/eproxus/meck.git",
        {ref,"70d6a33ce7407029dc59e22a5b3c1c61c1348b23"}},
@@ -29,4 +32,9 @@
  {<<"setup">>,
   {git,"git://github.com/uwiger/setup.git",
        {ref,"e4a089f743505f1166e026c51989f041da7b2f6d"}},
-  1}].
+  1}]}.
+[
+{pkg_hash,[
+ {<<"goldrush">>, <<"F06E5D5F1277DA5C413E84D5A2924174182FB108DABB39D5EC548B27424CD106">>},
+ {<<"lager">>, <<"A6DEB74DAE7927F46BD13255268308EF03EB206EC784A94EAF7C1C0F3B811615">>}]}
+].

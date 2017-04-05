@@ -13,7 +13,8 @@
   {applications,
    [kernel,
     stdlib,
-    exometer_core
+    exometer_core,
+    lager
    ]},
   {env,
    [
