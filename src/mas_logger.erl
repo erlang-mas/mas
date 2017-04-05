@@ -65,5 +65,5 @@ error(Format, Args) ->
 %%------------------------------------------------------------------------------
 setup_lager() ->
     application:load(lager),
-    LogsDir = mas_config:get_env(logs_dir),
+    LogsDir = filename:join(mas_config:get_env(logs_dir), node()),
     application:set_env(lager, log_root, LogsDir).

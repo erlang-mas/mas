@@ -25,7 +25,7 @@
 setup() ->
     LogsDir = mas_config:get_env(logs_dir),
     WriteInterval = mas_config:get_env(write_interval),
-    BaseDir = filename:join([LogsDir, node()]),
+    BaseDir = filename:join([LogsDir, node(), metrics]),
     exometer_report:add_reporter(exometer_report_fs, [{base_dir, BaseDir}]),
     exometer_report:set_interval(exometer_report_fs, write_interval,
                                  WriteInterval).
