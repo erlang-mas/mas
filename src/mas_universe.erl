@@ -51,6 +51,7 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     net_kernel:monitor_nodes(true),
+    mas_utils:seed_random(),
     Nodes = discover_nodes(),
     mas_logger:info("Started inter-node broker"),
     mas_logger:info("Discovered nodes: ~p", [Nodes]),

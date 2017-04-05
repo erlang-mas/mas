@@ -66,6 +66,7 @@ migrate_agents(Node, Agents) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
+    mas_utils:seed_random(),
     self() ! spawn_populations,
     {ok, #state{population_count = mas_config:get_env(population_count),
                 topology = mas_config:get_env(topology)}}.
