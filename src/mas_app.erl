@@ -18,6 +18,8 @@
 %% @private
 %%------------------------------------------------------------------------------
 start(normal, _Args) ->
+    Config = mas_config:get_all(),
+    mas_logger:info("Starting MAS engine with configuration: ~p", [Config]),
     mas_sup:start_link().
 
 %%------------------------------------------------------------------------------

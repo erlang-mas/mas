@@ -7,7 +7,8 @@
 
 %%% API
 -export([get_env/1,
-         get_env/2]).
+         get_env/2,
+         get_all/0]).
 
 %%%=============================================================================
 %%% API functions
@@ -31,3 +32,10 @@ get_env(Key, Default) ->
         {ok, Value} -> Value;
         _           -> Default
     end.
+
+%%------------------------------------------------------------------------------
+%% @doc Retrieves all application config.
+%% @end
+%%------------------------------------------------------------------------------
+get_all() ->
+    application:get_all_env(mas).

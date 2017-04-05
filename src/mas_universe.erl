@@ -51,7 +51,10 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     net_kernel:monitor_nodes(true),
-    {ok, #state{nodes = discover_nodes(),
+    Nodes = discover_nodes(),
+    mas_logger:info("Started inter-node broker"),
+    mas_logger:info("Discovered nodes: ~p", [Nodes]),
+    {ok, #state{nodes = Nodes,
                 topology = mas_config:get_env(nodes_topology)}}.
 
 %%------------------------------------------------------------------------------
@@ -114,10 +117,16 @@ discover_nodes() ->
 %% @private
 %%------------------------------------------------------------------------------
 add_node(Node, State = #state{nodes = Nodes}) ->
-    State#state{nodes = lists:usort([Node | Nodes])}.
+    NewNodes = lists:usort([Node | Nodes]),
+    mas_logger:info("Node ~p connected", [Node]),
+    mas_logger:info("Current nodes: ~p", [NewNodes]),
+    State#state{nodes = NewNodes}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 remove_node(Node, State = #state{nodes = Nodes}) ->
-    State#state{nodes = lists:usort(Nodes -- [Node])}.
+    NewNodes = lists:usort(Nodes -- [Node]),
+    mas_logger:info("Node ~p disconnected", [Node]),
+    mas_logger:info("Current nodes: ~p", [NewNodes]),
+    State#state{nodes = NewNodes}.
