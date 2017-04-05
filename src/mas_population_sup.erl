@@ -8,7 +8,7 @@
 -behaviour(supervisor).
 
 %%% API
--export([start_link/2,
+-export([start_link/1,
          spawn_population/0]).
 
 %%% Supervisor callbacks
@@ -20,8 +20,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link(SP, Config) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, {SP, Config}).
+start_link(SP) ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, SP).
 
 %%------------------------------------------------------------------------------
 %% @doc Spawns single agents population, returns it pid.
@@ -38,11 +38,11 @@ spawn_population() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init({SP, Config}) ->
+init(SP) ->
     {ok, {{simple_one_for_one, 0, 1},
      [
       {mas_population,
-       {mas_population, start_link, [SP, Config]},
+       {mas_population, start_link, [SP]},
        temporary, 1000, worker, [mas_population]
       }
      ]

@@ -12,7 +12,7 @@
 -behaviour(gen_fsm).
 
 %%% API
--export([start_link/1,
+-export([start_link/0,
          start_simulation/2,
          stop_simulation/0]).
 
@@ -31,8 +31,7 @@
 -define(SERVER, ?MODULE).
 
 -record(state, {module     :: module(),
-                simulation :: simulation(),
-                config     :: config()}).
+                simulation :: simulation()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -48,8 +47,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link(Config) ->
-    gen_fsm:start_link({local, ?SERVER}, ?MODULE, Config, []).
+start_link() ->
+    gen_fsm:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%------------------------------------------------------------------------------
 %% @doc Starts simulation with provided simulation parameters. Simulation
@@ -74,13 +73,10 @@ stop_simulation() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(Config) ->
+init(_Args) ->
     process_flag(trap_exit, true),
-    #config{simulation_mod = Mod,
-            logs_dir = LogsDir,
-            write_interval = WriteInterval} = Config,
-    setup_reporter(LogsDir, WriteInterval),
-    {ok, idle, #state{module = Mod, config = Config}}.
+    mas_reporter:setup(),
+    {ok, idle, #state{module = mas_config:get_env(simulation_mod)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -137,16 +133,9 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-setup_reporter(LogsDir, WriteInterval) ->
-    mas_reporter:setup(LogsDir, WriteInterval).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-simulation_start(SP, Time, Subscriber, State) ->
-    #state{module = Mod, config = Config} = State,
+simulation_start(SP, Time, Subscriber, State = #state{module = Mod}) ->
     simulation_setup(Mod, SP),
-    mas_sup:start_simulation(SP, Config),
+    mas_sup:start_simulation(SP),
     schedule_timer(Time),
     Simulation = simulation_record(SP, Time, Subscriber),
     State#state{simulation = Simulation}.

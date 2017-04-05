@@ -5,13 +5,11 @@
 
 -module(mas_sup).
 
--include("mas.hrl").
-
 -behaviour(supervisor).
 
 %%% API
 -export([start_link/0,
-         start_simulation/2,
+         start_simulation/1,
          stop_simulation/0]).
 
 %%% Supervisor callbacks
@@ -31,9 +29,9 @@ start_link() ->
 %%      the simulation.
 %% @end
 %%------------------------------------------------------------------------------
-start_simulation(SP, Config) ->
+start_simulation(SP) ->
     ChildSpec = {mas_simulation_sup,
-                 {mas_simulation_sup, start_link, [SP, Config]},
+                 {mas_simulation_sup, start_link, [SP]},
                  temporary, 5000, supervisor, [mas_simulation_sup]
                 },
     supervisor:start_child(mas_sup, ChildSpec).
@@ -53,11 +51,10 @@ stop_simulation() ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    Config = mas_config:fetch_all(),
     {ok, {{one_for_all, 1, 60},
      [
       {mas_simulation,
-       {mas_simulation, start_link, [Config]},
+       {mas_simulation, start_link, []},
        permanent, 1000, worker, [mas_simulation]
       }
      ]

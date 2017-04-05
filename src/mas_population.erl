@@ -10,7 +10,7 @@
 -behaviour(gen_server).
 
 %%% API
--export([start_link/2,
+-export([start_link/1,
          add_agents/2,
          get_agents/1]).
 
@@ -47,8 +47,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link(SP, Config) ->
-    gen_server:start_link(?MODULE, {SP, Config}, []).
+start_link(SP) ->
+    gen_server:start_link(?MODULE, SP, []).
 
 get_agents(Pid) ->
     % Waiting infinitely for response probably not a very good idea. Treat as
@@ -65,11 +65,11 @@ add_agents(Pid, Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init({SP, Config = #config{write_interval = WriteInterval}}) ->
+init(SP) ->
     process_flag(trap_exit, true),
     mas_utils:seed_random(),
-    State = init_state(SP, Config),
-    schedule_metrics_update(WriteInterval),
+    State = init_state(SP),
+    schedule_metrics_update(State),
     self() ! process_population,
     {ok, State}.
 
@@ -95,10 +95,8 @@ handle_cast(_Msg, State) ->
 handle_info(process_population, State) ->
     self() ! process_population,
     {noreply, process_population(State)};
-handle_info(update_metrics, State) ->
-    #state{behaviours_counter = Counter,
-           write_interval = WriteInterval} = State,
-    schedule_metrics_update(WriteInterval),
+handle_info(update_metrics, State = #state{behaviours_counter = Counter}) ->
+    schedule_metrics_update(State),
     update_metrics(State),
     NewCounter = mas_counter:reset(Counter),
     {noreply, State#state{behaviours_counter = NewCounter}};
@@ -125,16 +123,18 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init_state(SP, Config) ->
-    #config{population_mod = Mod,
-            population_size = Size,
-            migration_probability = MP,
-            node_migration_probability = NMP,
-            write_interval = WriteInterval} = Config,
-    Agents = generate_population(Mod, SP, Size),
+init_state(SP) ->
+    Mod = mas_config:get_env(population_mod),
+    PopulationSize = mas_config:get_env(population_size),
+    MP = mas_config:get_env(migration_probability),
+    NMP = mas_config:get_env(node_migration_probability),
+    WriteInterval = mas_config:get_env(write_interval),
+
+    Agents = generate_population(Mod, SP, PopulationSize),
     Behaviours = behaviours(Mod),
     BehavioursCounter = mas_counter:new(Behaviours),
     Metrics = subscribe_metrics(Behaviours),
+
     #state{
         module = Mod,
         agents = Agents,
@@ -266,5 +266,5 @@ update_metric(Metric = [_Pid, Behaviour], State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-schedule_metrics_update(WriteInterval) ->
+schedule_metrics_update(#state{write_interval = WriteInterval}) ->
     erlang:send_after(WriteInterval, self(), update_metrics).

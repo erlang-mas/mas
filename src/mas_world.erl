@@ -10,7 +10,7 @@
 -behaviour(gen_server).
 
 %%% API
--export([start_link/1,
+-export([start_link/0,
          get_agents/0,
          migrate_agents/1,
          migrate_agents/2]).
@@ -33,8 +33,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link(Config) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%------------------------------------------------------------------------------
 %% @doc Collects agents from all populations.
@@ -65,9 +65,10 @@ migrate_agents(Node, Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(#config{population_count = Count, topology = Topology}) ->
+init(_Args) ->
     self() ! spawn_populations,
-    {ok, #state{population_count = Count, topology = Topology}}.
+    {ok, #state{population_count = mas_config:get_env(population_count),
+                topology = mas_config:get_env(topology)}}.
 
 %%------------------------------------------------------------------------------
 %% @private

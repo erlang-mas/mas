@@ -6,7 +6,7 @@
 -module(mas_reporter).
 
 %%% API
--export([setup/2,
+-export([setup/0,
          teardown/0,
          subscribe/1,
          subscribe/3,
@@ -22,8 +22,10 @@
 %%%      inside provided logs directory.
 %%% @end
 %%%-----------------------------------------------------------------------------
-setup(LogsDir, WriteInterval) ->
-    BaseDir = filename:join(LogsDir, node()),
+setup() ->
+    LogsDir = mas_config:get_env(logs_dir),
+    WriteInterval = mas_config:get_env(write_interval),
+    BaseDir = filename:join([LogsDir, node()]),
     exometer_report:add_reporter(exometer_report_fs, [{base_dir, BaseDir}]),
     exometer_report:set_interval(exometer_report_fs, write_interval,
                                  WriteInterval).

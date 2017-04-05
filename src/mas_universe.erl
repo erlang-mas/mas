@@ -11,7 +11,7 @@
 -behaviour(gen_server).
 
 %%% API
--export([start_link/1,
+-export([start_link/0,
          migrate_agents/1]).
 
 %%% Server callbacks
@@ -31,8 +31,8 @@
 %%% API functions
 %%%=============================================================================
 
-start_link(Config) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, Config, []).
+start_link() ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%------------------------------------------------------------------------------
 %% @doc Migrates partitioned agent groups between populations residing on
@@ -49,9 +49,10 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-init(#config{nodes_topology = Topology}) ->
+init(_Args) ->
     net_kernel:monitor_nodes(true),
-    {ok, #state{nodes = discover_nodes(), topology = Topology}}.
+    {ok, #state{nodes = discover_nodes(),
+                topology = mas_config:get_env(nodes_topology)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
