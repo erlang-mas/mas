@@ -98,12 +98,12 @@ handle_info(process_population, State) ->
     {noreply, process_population(State)};
 handle_info(update_metrics, State = #state{behaviours_counter = Counter}) ->
     schedule_metrics_update(State),
+    log_metrics(State),
     update_metrics(State),
     NewCounter = mas_counter:reset(Counter),
     {noreply, State#state{behaviours_counter = NewCounter}};
 handle_info(_Info, State) ->
     {noreply, State}.
-
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -270,3 +270,10 @@ update_metric(Metric = [_Pid, Behaviour], State) ->
 %%------------------------------------------------------------------------------
 schedule_metrics_update(#state{write_interval = WriteInterval}) ->
     erlang:send_after(WriteInterval, self(), update_metrics).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+log_metrics(#state{agents = Agents, behaviours_counter = Counter}) ->
+    Data = [{agents_count, length(Agents)} | dict:to_list(Counter)],
+    mas_logger:debug("~p", [Data]).
