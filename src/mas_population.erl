@@ -27,6 +27,7 @@
                 agents                     :: [agent()],
                 sim_params                 :: sim_params(),
                 behaviours_counter         :: counter(),
+                received_agents            :: pos_integer(),
                 metrics                    :: [metric()],
                 migration_probability      :: float(),
                 node_migration_probability :: float(),
@@ -85,8 +86,11 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({add_agents, NewAgents}, State = #state{agents = Agents}) ->
-    {noreply, State#state{agents = Agents ++ NewAgents}};
+handle_cast({add_agents, NewAgents}, State) ->
+    #state{agents = Agents, received_agents = ReceivedAgents} = State,
+    NewReceivedAgents = ReceivedAgents + length(NewAgents),
+    {noreply, State#state{agents = Agents ++ NewAgents,
+                          received_agents = NewReceivedAgents}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -101,7 +105,8 @@ handle_info(update_metrics, State = #state{behaviours_counter = Counter}) ->
     log_metrics(State),
     update_metrics(State),
     NewCounter = mas_counter:reset(Counter),
-    {noreply, State#state{behaviours_counter = NewCounter}};
+    {noreply, State#state{behaviours_counter = NewCounter,
+                          received_agents = 0}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -141,6 +146,7 @@ init_state(SP) ->
         population_size = PopulationSize,
         agents = Agents,
         behaviours_counter = BehavioursCounter,
+        received_agents = 0,
         metrics = Metrics,
         sim_params = SP,
         migration_probability = MP,
@@ -274,6 +280,20 @@ schedule_metrics_update(#state{write_interval = WriteInterval}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-log_metrics(#state{agents = Agents, behaviours_counter = Counter}) ->
-    Data = [{agents_count, length(Agents)} | dict:to_list(Counter)],
+log_metrics(State) ->
+    #state{agents = Agents,
+           behaviours_counter = Counter,
+           received_agents = ReceivedAgents} = State,
+    TotalEnergy = total_energy(State),
+    Data = [
+        {received_agents, ReceivedAgents},
+        {total_energy, TotalEnergy},
+        {agents_count, length(Agents)} | dict:to_list(Counter)
+    ],
     mas_logger:debug("~p", [Data]).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+total_energy(#state{module = Mod, agents = Agents}) ->
+    lists:foldl(fun (Agent, Acc) -> Acc + Mod:energy(Agent) end, 0, Agents).
