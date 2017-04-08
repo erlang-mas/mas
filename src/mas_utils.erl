@@ -36,6 +36,7 @@ group_by(L) ->
 %%      times to ensure a fair shuffle.
 %% @end
 %%------------------------------------------------------------------------------
+shuffle([]) -> [];
 shuffle(List) ->
    randomize(round(math:log(length(List)) + 0.5), List).
 
