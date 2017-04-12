@@ -88,7 +88,6 @@ handle_cast({migrate_agents, Agents, Source}, State) ->
         {ok, Destinations} ->
             mas_migration:send_to_populations(Destinations, Agents);
         no_destination ->
-            mas_logger:info("Cannot migrate from ~p", [Source]),
             mas_migration:send_back(Source, Agents)
     end,
     {noreply, State};

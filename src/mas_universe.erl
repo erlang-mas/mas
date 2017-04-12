@@ -73,7 +73,6 @@ handle_cast({migrate_agents, Agents, Source = {Pid, Node}}, State) ->
         {ok, Destinations} ->
             mas_migration:send_to_nodes(Destinations, Agents);
         no_destination ->
-            mas_logger:info("Cannot migrate from ~p", [Source]),
             mas_migration:send_back(Pid, Agents)
     end,
     {noreply, State};
