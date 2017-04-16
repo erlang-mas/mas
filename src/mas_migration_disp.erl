@@ -1,11 +1,9 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Spawns multiple populations of agents. Handles agent migrations.
+%%% @doc Dispatches agents to migration brokers.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
--module(mas_world).
-
--include("mas.hrl").
+-module(mas_migration_disp).
 
 -behaviour(gen_server).
 
@@ -23,8 +21,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations :: [pid()],
-                topology    :: topology()}).
+-record(state, {node_migration_probability  :: float()}).
 
 %%%=============================================================================
 %%% API functions
@@ -34,7 +31,8 @@ start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 migrate_agents(Agents) ->
-    gen_server:cast(?SERVER, {migrate_agents, Agents, self()}).
+    Source = {node(), self()},
+    gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -44,9 +42,8 @@ migrate_agents(Agents) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    mas_utils:seed_random(),
-    self() ! spawn_populations,
-    {ok, #state{topology = mas_config:get_env(topology)}}.
+    NMP = mas_config:get_env(node_migration_probability),
+    {ok, #state{node_migration_probability = NMP}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -57,14 +54,13 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, Population}, State) ->
-    #state{populations = Populations, topology = Topology} = State,
-    case mas_topology:destinations(Topology, Populations, Population) of
-        {ok, Destinations} ->
-            mas_migration:send_to_populations(Destinations, Agents);
-        no_destination ->
-            mas_migration:send_back(Population, Agents)
-    end,
+handle_cast({migrate_agents, Agents, Source}, State) ->
+    #state{node_migration_probability = NMP} = State,
+    MigrationBroker = case rand:uniform() < NMP of
+                          true -> mas_world_broker;
+                          false -> mas_world
+                      end,
+    MigrationBroker:migrate_agents(Agents, Source),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -72,9 +68,6 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State) ->
-    Count = mas_config:get_env(population_count),
-    {noreply, State#state{populations = spawn_populations(Count)}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -89,13 +82,3 @@ terminate(_Reason, _State) ->
 %%------------------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-%%%=============================================================================
-%%% Internal functions
-%%%=============================================================================
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-spawn_populations(Count) ->
-    [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
