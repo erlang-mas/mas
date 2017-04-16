@@ -30,18 +30,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {module     :: module(),
-                simulation :: simulation()}).
-
-%%%=============================================================================
-%%% Behaviour
-%%%=============================================================================
-
--callback simulation_setup(sim_params()) -> any().
-
--callback simulation_teardown(sim_params()) -> any().
-
--callback simulation_result(sim_params(), [agent()]) -> any().
+-record(state, {simulation :: simulation()}).
 
 %%%=============================================================================
 %%% API functions
@@ -52,8 +41,8 @@ start_link() ->
 
 %%------------------------------------------------------------------------------
 %% @doc Starts simulation with provided simulation parameters. Simulation
-%%      terminates automaticaly if given time constraint is a positive integer.
-%%      Otherwise simulation runs infinitely.
+%%      stops automaticaly if given time constraint is a positive integer.
+%%      Otherwise simulation runs until stopped manualy.
 %% @end
 %%------------------------------------------------------------------------------
 start_simulation(SP, Time) ->
@@ -74,23 +63,25 @@ stop_simulation() ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    process_flag(trap_exit, true),
-    mas_reporter:setup(),
-    {ok, idle, #state{module = mas_config:get_env(simulation_mod)}}.
+    {ok, idle, #state{}}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-idle({start_simulation, SP, Time}, {Pid, _Ref}, State) ->
-    {reply, ok, processing, simulation_start(SP, Time, Pid, State)};
+idle({start_simulation, SP, Time}, From, State) ->
+    mas_sup:start_simulation(SP),
+    schedule_timer(Time),
+    Simulation = simulation_record(SP, Time, From),
+    {reply, ok, processing, State#state{simulation = Simulation}};
 idle(_Event, _From, State) ->
     {reply, ignored, idle, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-processing(stop_simulation, _From, State) ->
-    {reply, ok, idle, simulation_stop(State)};
+processing(stop_simulation, _From, State = #state{simulation = Simulation}) ->
+    do_stop_simulation(Simulation),
+    {reply, ok, idle, State#state{simulation = none}};
 processing(_Event, _From, State) ->
     {reply, ignored, processing, State}.
 
@@ -109,8 +100,9 @@ handle_sync_event(_Event, _From, StateName, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(timeup, processing, State) ->
-    {next_state, idle, simulation_stop(State)};
+handle_info(timeup, processing, State = #state{simulation = Simulation}) ->
+    do_stop_simulation(Simulation),
+    {next_state, idle, State#state{simulation = none}};
 handle_info(_Event, StateName, State) ->
     {next_state, StateName, State}.
 
@@ -118,7 +110,7 @@ handle_info(_Event, StateName, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 terminate(_Reason, _StateName, _State) ->
-    mas_reporter:teardown().
+    ok.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -133,24 +125,9 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-simulation_start(SP, Time, Subscriber, State = #state{module = Mod}) ->
-    simulation_setup(Mod, SP),
-    mas_sup:start_simulation(SP),
-    schedule_timer(Time),
-    Simulation = simulation_record(SP, Time, Subscriber),
-    State#state{simulation = Simulation}.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-simulation_stop(State = #state{module = Mod, simulation = Simulation}) ->
-    #simulation{params = SP, subscriber = Subscriber} = Simulation,
-    {agents, Agents} = mas_world:get_agents(),
+do_stop_simulation(#simulation{result_sink = ResultSink}) ->
     mas_sup:stop_simulation(),
-    simulation_teardown(Mod, SP),
-    Result = simulation_result(Mod, SP, Agents),
-    report_result(Result, Subscriber),
-    State#state{simulation = none}.
+    gen_fsm:reply(ResultSink, stopped).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -162,29 +139,5 @@ schedule_timer(_Time) -> ok.
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-simulation_record(SP, Time, Subscriber) ->
-    #simulation{params = SP, time = Time, subscriber = Subscriber}.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-report_result(Result, Subscriber) ->
-    Subscriber ! {result, Result}.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-simulation_setup(Mod, SP) ->
-    Mod:simulation_setup(SP).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-simulation_teardown(Mod, SP) ->
-    Mod:simulation_teardown(SP).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-simulation_result(Mod, SP, Agents) ->
-    Mod:simulation_result(SP, Agents).
+simulation_record(SP, Time, ResultSink) ->
+    #simulation{sim_params = SP, time = Time, result_sink = ResultSink}.
