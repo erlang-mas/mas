@@ -6,7 +6,7 @@
 -module(mas_utils).
 
 %%% API
--export([group_by/1,
+-export([group_by_key/1,
          shuffle/1,
          sample/1,
          index_of/2,
@@ -25,7 +25,7 @@
 %%      [{K1, [V1, V3]}, {K2, [V2, V4]}].
 %% @end
 %%------------------------------------------------------------------------------
-group_by(L) ->
+group_by_key(L) ->
     Fold = fun({K, V}, D) -> dict:append(K, V, D) end,
     Dict = lists:foldl(Fold, dict:new(), L),
     dict:to_list(Dict).
