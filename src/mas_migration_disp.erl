@@ -1,18 +1,15 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Discovers universe of interconnected nodes and handles agent migrations
-%%%      between them.
+%%% @doc Dispatches agents to migration brokers.
 %%% @end
 %%%-----------------------------------------------------------------------------
 
--module(mas_world_broker).
-
--include("mas.hrl").
+-module(mas_migration_disp).
 
 -behaviour(gen_server).
 
 %%% API
 -export([start_link/0,
-         migrate_agents/2]).
+         migrate_agents/1]).
 
 %%% Server callbacks
 -export([init/1,
@@ -24,8 +21,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {nodes       :: [node()],
-                topology    :: topology()}).
+-record(state, {node_migration_probability  :: float()}).
 
 %%%=============================================================================
 %%% API functions
@@ -34,7 +30,8 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-migrate_agents(Agents, Source) ->
+migrate_agents(Agents) ->
+    Source = {node(), self()},
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
 %%%=============================================================================
@@ -45,12 +42,8 @@ migrate_agents(Agents, Source) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    net_kernel:monitor_nodes(true),
-    mas_utils:seed_random(),
-    Nodes = discover_nodes(),
-    mas_logger:info("Connected nodes: ~p", [Nodes]),
-    {ok, #state{nodes = Nodes,
-                topology = mas_config:get_env(nodes_topology)}}.
+    NMP = mas_config:get_env(node_migration_probability),
+    {ok, #state{node_migration_probability = NMP}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -61,13 +54,13 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, {Node, Population}}, State) ->
-    #state{nodes = Nodes, topology = Topology} = State,
-    case mas_topology:destinations(Topology, Nodes, Node) of
-        {ok, Destinations} ->
-            mas_migration:send_to_nodes(Destinations, Agents);
-        no_destination ->
-            mas_migration:send_back(Population, Agents)
+handle_cast({migrate_agents, Agents, Source}, State) ->
+    #state{node_migration_probability = NMP} = State,
+    case rand:uniform() < NMP of
+        true ->
+            mas_world_broker:migrate_agents(Agents, Source);
+        false ->
+            mas_world:migrate_agents(Agents, Source)
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
@@ -76,14 +69,6 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info({nodeup, Node}, State = #state{nodes = Nodes}) ->
-    mas_logger:info("Node ~p connected", [Node]),
-    NewNodes = lists:usort([Node | Nodes]),
-    {noreply, State#state{nodes = NewNodes}};
-handle_info({nodedown, Node}, State= #state{nodes = Nodes}) ->
-    mas_logger:info("Node ~p disconnected", [Node]),
-    NewNodes = lists:usort(Nodes -- [Node]),
-    {noreply, State#state{nodes = NewNodes}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -98,19 +83,3 @@ terminate(_Reason, _State) ->
 %%------------------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-%%%=============================================================================
-%%% Internal functions
-%%%=============================================================================
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-discover_nodes() ->
-    case net_adm:host_file() of
-        {error, _Reason} ->
-            mas_logger:warning("Hosts file not found"),
-            [];
-        Hosts ->
-            net_adm:world(Hosts)
-    end.

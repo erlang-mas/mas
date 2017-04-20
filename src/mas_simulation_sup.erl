@@ -43,6 +43,11 @@ init(SP) ->
       {mas_world_broker,
        {mas_world_broker, start_link, []},
        temporary, 1000, worker, [mas_world_broker]
+      },
+
+      {mas_migration_disp,
+       {mas_migration_disp, start_link, []},
+       permanent, 1000, worker, [mas_migration_disp]
       }
      ]
     }}.

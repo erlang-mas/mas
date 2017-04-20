@@ -218,7 +218,7 @@ process_arenas(Mod, Arenas, ModState) ->
 %% @private
 %%------------------------------------------------------------------------------
 apply_behaviour(_Mod, {migration, Agents}, _ModState) ->
-    mas_world:migrate_agents(Agents),
+    mas_migration_disp:migrate_agents(Agents),
     [];
 apply_behaviour(Mod, {Behaviour, Agents}, ModState) ->
     Mod:apply_behaviour(Behaviour, Agents, ModState).
