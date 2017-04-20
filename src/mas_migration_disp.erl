@@ -21,7 +21,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {node_migration_probability  :: float()}).
+-record(state, {node_migration_probability  :: float(),
+                write_interval              :: integer()}).
 
 %%%=============================================================================
 %%% API functions
@@ -43,7 +44,10 @@ migrate_agents(Agents) ->
 %%------------------------------------------------------------------------------
 init(_Args) ->
     NMP = mas_config:get_env(node_migration_probability),
-    {ok, #state{node_migration_probability = NMP}}.
+    WriteInterval = mas_config:get_env(write_interval),
+    schedule_metrics_update(WriteInterval),
+    {ok, #state{node_migration_probability = NMP,
+                write_interval = WriteInterval}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -69,6 +73,12 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+handle_info(update_metrics, State) ->
+    #state{write_interval = WriteInterval} = State,
+    {_, QueueLen} = erlang:process_info(self(), message_queue_len),
+    mas_logger:info("~p", [{migration_disp_queue_len, QueueLen}]),
+    schedule_metrics_update(WriteInterval),
+    {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -83,3 +93,13 @@ terminate(_Reason, _State) ->
 %%------------------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%%%=============================================================================
+%%% Internal functions
+%%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+schedule_metrics_update(WriteInterval) ->
+    erlang:send_after(WriteInterval, ?SERVER, update_metrics).

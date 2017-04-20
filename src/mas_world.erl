@@ -23,8 +23,9 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations :: [pid()],
-                topology    :: topology()}).
+-record(state, {populations     :: [pid()],
+                topology        :: topology(),
+                write_interval  :: integer()}).
 
 %%%=============================================================================
 %%% API functions
@@ -46,7 +47,10 @@ migrate_agents(Agents, Source) ->
 init(_Args) ->
     mas_utils:seed_random(),
     self() ! spawn_populations,
-    {ok, #state{topology = mas_config:get_env(topology)}}.
+    WriteInterval = mas_config:get_env(write_interval),
+    schedule_metrics_update(WriteInterval),
+    {ok, #state{topology = mas_config:get_env(topology),
+                write_interval = WriteInterval}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -75,6 +79,12 @@ handle_cast(_Msg, State) ->
 handle_info(spawn_populations, State) ->
     Count = mas_config:get_env(population_count),
     {noreply, State#state{populations = spawn_populations(Count)}};
+handle_info(update_metrics, State) ->
+    #state{write_interval = WriteInterval} = State,
+    {_, QueueLen} = erlang:process_info(self(), message_queue_len),
+    mas_logger:info("~p", [{world_queue_len, QueueLen}]),
+    schedule_metrics_update(WriteInterval),
+    {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -99,3 +109,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 spawn_populations(Count) ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+schedule_metrics_update(WriteInterval) ->
+    erlang:send_after(WriteInterval, ?SERVER, update_metrics).
