@@ -22,11 +22,12 @@
          terminate/2,
          code_change/3]).
 
--record(state, {module          :: module(),
-                agents          :: population(),
-                mod_state       :: mod_state(),
-                metrics_counter :: counter(),
-                write_interval  :: integer()}).
+-record(state, {module              :: module(),
+                agents              :: population(),
+                mod_state           :: mod_state(),
+                metrics             :: [metric()],
+                behaviours_counter  :: counter(),
+                write_interval      :: integer()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -110,7 +111,7 @@ handle_info(process, State) ->
     #state{module = Mod,
            agents = A,
            mod_state = MS,
-           metrics_counter = Counter} = State,
+           behaviours_counter = Counter} = State,
     {A1, MS1} = preprocess(Mod, A, MS),
     TaggedAgents = determine_behaviours(Mod, A1, MS1),
     Arenas = form_arenas(TaggedAgents),
@@ -122,19 +123,13 @@ handle_info(process, State) ->
     schedule_next_step(),
     {noreply, State#state{agents = A3,
                           mod_state = MS2,
-                          metrics_counter = NewCounter}};
+                          behaviours_counter = NewCounter}};
 handle_info(update_metrics, State) ->
-    #state{module = Mod,
-           agents = Agents,
-           mod_state = ModState,
-           metrics_counter = Counter} = State,
-    ModMetrics = Mod:metrics(Agents, ModState),
-    Metrics = [{agents_count, length(Agents)} |
-               lists:append(ModMetrics, dict:to_list(Counter))],
-    mas_logger:info("~p", [Metrics]),
+    #state{behaviours_counter = Counter} = State,
+    update_metrics(State),
     NewCounter = mas_counter:reset(Counter),
     schedule_metrics_update(State),
-    {noreply, State#state{metrics_counter = NewCounter}};
+    {noreply, State#state{behaviours_counter = NewCounter}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -143,7 +138,8 @@ handle_info(_Info, State) ->
 %%------------------------------------------------------------------------------
 terminate(_Reason, State) ->
     #state{module = Mod, agents = Agents, mod_state = ModState} = State,
-    Mod:terminate(Agents, ModState).
+    Mod:terminate(Agents, ModState),
+    unsubscribe_metrics(State).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -164,12 +160,14 @@ init_state(SP) ->
     InitialAgents = generate_population(Mod, SP, PopulationSize),
     {Agents, ModState} = Mod:init(InitialAgents, SP),
     Behaviours = behaviours(Mod),
-    MetricsCounter = mas_counter:new(Behaviours),
+    Metrics = subscribe_metrics(Behaviours),
+    BehavioursCounter = mas_counter:new(Behaviours),
     WriteInterval = mas_config:get_env(write_interval),
     #state{module = Mod,
            agents = Agents,
            mod_state = ModState,
-           metrics_counter = MetricsCounter,
+           metrics = Metrics,
+           behaviours_counter = BehavioursCounter,
            write_interval = WriteInterval}.
 
 %%------------------------------------------------------------------------------
@@ -234,6 +232,43 @@ extract_agents(Arenas) ->
 %%------------------------------------------------------------------------------
 count_behaviours(Arenas) ->
     [{Behaviour, length(Agents)} || {Behaviour, Agents} <- Arenas].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+subscribe_metrics(Behaviours) ->
+    Metrics = [[self(), Metric] || Metric <- [agents_count | Behaviours]],
+    [subscribe_metric(Metric) || Metric <- Metrics],
+    Metrics.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+subscribe_metric(Metric = [_Pid, agents_count]) ->
+    mas_reporter:subscribe(Metric, gauge, value);
+subscribe_metric(Metric) ->
+    mas_reporter:subscribe(Metric).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+unsubscribe_metrics(#state{metrics = Metrics}) ->
+    [mas_reporter:unsubscribe(Metric) || Metric <- Metrics].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+update_metrics(State = #state{metrics = Metrics}) ->
+    [update_metric(Metric, State) || Metric <- Metrics].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+update_metric(Metric = [_Pid, agents_count], #state{agents = Agents}) ->
+    mas_reporter:update(Metric, length(Agents));
+update_metric(Metric = [_Pid, Behaviour], State) ->
+    #state{behaviours_counter = Counter} = State,
+    mas_reporter:update(Metric, dict:fetch(Behaviour, Counter)).
 
 %%------------------------------------------------------------------------------
 %% @private
