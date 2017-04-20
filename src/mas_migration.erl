@@ -53,7 +53,7 @@ group(Destinations, Agents) ->
 %%------------------------------------------------------------------------------
 send_to_node({_Node, []}) -> ok;
 send_to_node({Node, Agents}) ->
-    mas_world:migrate_agents(Node, Agents).
+    mas_world:put_agents(Node, Agents).
 
 %%------------------------------------------------------------------------------
 %% @private
