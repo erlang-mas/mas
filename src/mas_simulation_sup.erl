@@ -40,9 +40,9 @@ init(SP) ->
        temporary, 1000, worker, [mas_world]
       },
 
-      {mas_universe,
-       {mas_universe, start_link, []},
-       temporary, 1000, worker, [mas_universe]
+      {mas_world_broker,
+       {mas_world_broker, start_link, []},
+       temporary, 1000, worker, [mas_world_broker]
       }
      ]
     }}.

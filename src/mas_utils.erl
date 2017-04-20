@@ -13,7 +13,8 @@
          timestamp/0,
          to_string/1,
          seed_random/0,
-         partition/2]).
+         partition/2,
+         random_partition/2]).
 
 %%%=============================================================================
 %%% API functions
@@ -98,6 +99,13 @@ partition(L, 2) ->
 partition(L, N) ->
     {Chunk, T} = lists:partition(fun(_) -> rand:uniform(N) == 1 end, L),
     [Chunk | partition(T, N - 1)].
+
+%%------------------------------------------------------------------------------
+%% @doc Splits list by probability.
+%% @end
+%%------------------------------------------------------------------------------
+random_partition(Prob, L) ->
+    lists:partition(fun (_) -> rand:uniform() < Prob end, L).
 
 %%%=============================================================================
 %%% Internal functions

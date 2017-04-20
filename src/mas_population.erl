@@ -11,8 +11,8 @@
 
 %%% API
 -export([start_link/1,
-         add_agents/2,
-         get_agents/1]).
+         get_agents/1,
+         add_agents/2]).
 
 %%% Server callbacks
 -export([init/1,
@@ -22,28 +22,42 @@
          terminate/2,
          code_change/3]).
 
--record(state, {module                     :: module(),
-                population_size            :: pos_integer(),
-                agents                     :: [agent()],
-                sim_params                 :: sim_params(),
-                behaviours_counter         :: counter(),
-                received_agents            :: pos_integer(),
-                metrics                    :: [metric()],
-                migration_probability      :: float(),
-                node_migration_probability :: float(),
-                write_interval             :: pos_integer()}).
+-record(state, {module          :: module(),
+                agents          :: population(),
+                mod_state       :: mod_state(),
+                metrics_counter :: counter(),
+                write_interval  :: integer()}).
 
 %%%=============================================================================
 %%% Behaviour
 %%%=============================================================================
 
--callback initial_agent(sim_params()) -> agent().
+-callback init(population(), sim_params()) ->
+    {population(), mod_state()}.
 
--callback behaviours() -> [behaviour()].
+-callback initial_agent(sim_params()) ->
+    agent().
 
--callback behaviour(agent(), sim_params()) -> behaviour().
+-callback behaviours() ->
+    [behaviour()].
 
--callback meeting({behaviour(), [agent()]}, sim_params()) -> [agent()].
+-callback behaviour(agent(), mod_state()) ->
+    behaviour().
+
+-callback apply_behaviour(behaviour(), population(), mod_state()) ->
+    population().
+
+-callback preprocess(population(), mod_state()) ->
+    {population(), mod_state()}.
+
+-callback postprocess(population(), mod_state()) ->
+    {population(), mod_state()}.
+
+-callback metrics(population(), mod_state()) ->
+    [metric()].
+
+-callback terminate(population(), mod_state()) ->
+    any().
 
 %%%=============================================================================
 %%% API functions
@@ -53,9 +67,7 @@ start_link(SP) ->
     gen_server:start_link(?MODULE, SP, []).
 
 get_agents(Pid) ->
-    % Waiting infinitely for response probably not a very good idea. Treat as
-    % temporary solution.
-    gen_server:call(Pid, get_agents, infinity).
+    gen_server:call(Pid, get_agents).
 
 add_agents(Pid, Agents) ->
     gen_server:cast(Pid, {add_agents, Agents}).
@@ -71,42 +83,58 @@ init(SP) ->
     process_flag(trap_exit, true),
     mas_utils:seed_random(),
     State = init_state(SP),
+    schedule_next_step(),
     schedule_metrics_update(State),
-    self() ! process_population,
     {ok, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_call(get_agents, _From, State) ->
-    {reply, {agents, State#state.agents}, State};
+handle_call(get_agents, _From, State = #state{agents = Agents}) ->
+    {reply, {agents, Agents}, State};
 handle_call(_Request, _From, State) ->
     {reply, ignored, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({add_agents, NewAgents}, State) ->
-    #state{agents = Agents, received_agents = ReceivedAgents} = State,
-    NewReceivedAgents = ReceivedAgents + length(NewAgents),
-    {noreply, State#state{agents = Agents ++ NewAgents,
-                          received_agents = NewReceivedAgents}};
+handle_cast({add_agents, NewAgents}, State = #state{agents = Agents}) ->
+    {noreply, State#state{agents = Agents ++ NewAgents}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(process_population, State) ->
-    self() ! process_population,
-    {noreply, process_population(State)};
-handle_info(update_metrics, State = #state{behaviours_counter = Counter}) ->
-    schedule_metrics_update(State),
-    log_metrics(State),
-    update_metrics(State),
+handle_info(process, State) ->
+    #state{module = Mod,
+           agents = A,
+           mod_state = MS,
+           metrics_counter = Counter} = State,
+    {A1, MS1} = preprocess(Mod, A, MS),
+    TaggedAgents = determine_behaviours(Mod, A1, MS1),
+    Arenas = form_arenas(TaggedAgents),
+    ProcessedArenas = process_arenas(Mod, Arenas, MS1),
+    A2 = extract_agents(ProcessedArenas),
+    {A3, MS2} = postprocess(Mod, A2, MS1),
+    BehaviourCounts = count_behaviours(Arenas),
+    NewCounter = mas_counter:update(BehaviourCounts, Counter),
+    schedule_next_step(),
+    {noreply, State#state{agents = A3,
+                          mod_state = MS2,
+                          metrics_counter = NewCounter}};
+handle_info(update_metrics, State) ->
+    #state{module = Mod,
+           agents = Agents,
+           mod_state = ModState,
+           metrics_counter = Counter} = State,
+    ModMetrics = Mod:metrics(Agents, ModState),
+    Metrics = [{agents_count, length(Agents)} |
+               lists:append(ModMetrics, dict:to_list(Counter))],
+    mas_logger:info("~p", [Metrics]),
     NewCounter = mas_counter:reset(Counter),
-    {noreply, State#state{behaviours_counter = NewCounter,
-                          received_agents = 0}};
+    schedule_metrics_update(State),
+    {noreply, State#state{metrics_counter = NewCounter}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -114,7 +142,8 @@ handle_info(_Info, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 terminate(_Reason, State) ->
-    unsubscribe_metrics(State).
+    #state{module = Mod, agents = Agents, mod_state = ModState} = State,
+    Mod:terminate(Agents, ModState).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -132,27 +161,16 @@ code_change(_OldVsn, State, _Extra) ->
 init_state(SP) ->
     Mod = mas_config:get_env(population_mod),
     PopulationSize = mas_config:get_env(population_size),
-    MP = mas_config:get_env(migration_probability),
-    NMP = mas_config:get_env(node_migration_probability),
-    WriteInterval = mas_config:get_env(write_interval),
-
-    Agents = generate_population(Mod, SP, PopulationSize),
+    InitialAgents = generate_population(Mod, SP, PopulationSize),
+    {Agents, ModState} = Mod:init(InitialAgents, SP),
     Behaviours = behaviours(Mod),
-    BehavioursCounter = mas_counter:new(Behaviours),
-    Metrics = subscribe_metrics(Behaviours),
-
-    #state{
-        module = Mod,
-        population_size = PopulationSize,
-        agents = Agents,
-        behaviours_counter = BehavioursCounter,
-        received_agents = 0,
-        metrics = Metrics,
-        sim_params = SP,
-        migration_probability = MP,
-        node_migration_probability = NMP,
-        write_interval = WriteInterval
-    }.
+    MetricsCounter = mas_counter:new(Behaviours),
+    WriteInterval = mas_config:get_env(write_interval),
+    #state{module = Mod,
+           agents = Agents,
+           mod_state = ModState,
+           metrics_counter = MetricsCounter,
+           write_interval = WriteInterval}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -163,64 +181,47 @@ generate_population(Mod, SP, Size) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-process_population(State = #state{behaviours_counter = Counter}) ->
-    TaggedAgents = tag_agents(State),
-    Arenas = form_arenas(TaggedAgents),
-    ProcessedArenas = process_arenas(Arenas, State),
-    NewAgents = extract_agents(ProcessedArenas),
-    BehaviourCounts = count_behaviours(Arenas),
-    NewCounter = mas_counter:update(BehaviourCounts, Counter),
-    State#state{agents = NewAgents, behaviours_counter = NewCounter}.
+preprocess(Mod, Agents, ModState) ->
+    Mod:preprocess(Agents, ModState).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-tag_agents(State = #state{agents = Agents}) ->
-    [{behaviour(Agent, State), Agent} || Agent <- Agents].
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-behaviour(Agent, State) ->
-    #state{module = Mod,
-           sim_params = SP,
-           migration_probability = MP,
-           node_migration_probability = NMP} = State,
-    case rand:uniform() of
-        R when R < MP       -> migration;
-        R when R < MP + NMP -> node_migration;
-        _                   -> Mod:behaviour(Agent, SP)
-    end.
+postprocess(Mod, Agents, ModState) ->
+    Mod:postprocess(Agents, ModState).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 behaviours(Mod) ->
-    [migration, node_migration] ++ Mod:behaviours().
+    [migration | Mod:behaviours()].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-form_arenas(Agents) ->
-    mas_utils:group_by(Agents).
+determine_behaviours(Mod, Agents, ModState) ->
+    [{Mod:behaviour(Agent, ModState), Agent} || Agent <- Agents].
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-process_arenas(Arenas, State) ->
-    [apply_meetings(Arena, State) || Arena <- Arenas].
+form_arenas(TaggedAgents) ->
+    mas_utils:group_by_key(TaggedAgents).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-apply_meetings({migration, Agents}, _State) ->
+process_arenas(Mod, Arenas, ModState) ->
+    [apply_behaviour(Mod, Arena, ModState) || Arena <- Arenas].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+apply_behaviour(_Mod, {migration, Agents}, _ModState) ->
     mas_world:migrate_agents(Agents),
     [];
-apply_meetings({node_migration, Agents}, _State) ->
-    mas_universe:migrate_agents(Agents),
-    [];
-apply_meetings(Arena, #state{module = Mod, sim_params = SP}) ->
-    Mod:meeting(Arena, SP).
+apply_behaviour(Mod, {Behaviour, Agents}, ModState) ->
+    Mod:apply_behaviour(Behaviour, Agents, ModState).
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -237,63 +238,11 @@ count_behaviours(Arenas) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-subscribe_metrics(Behaviours) ->
-    Metrics = [[self(), Metric] || Metric <- [agents_count | Behaviours]],
-    [subscribe_metric(Metric) || Metric <- Metrics],
-    Metrics.
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-subscribe_metric(Metric = [_Pid, agents_count]) ->
-    mas_reporter:subscribe(Metric, gauge, value);
-subscribe_metric(Metric) ->
-    mas_reporter:subscribe(Metric).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-unsubscribe_metrics(#state{metrics = Metrics}) ->
-    [mas_reporter:unsubscribe(Metric) || Metric <- Metrics].
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-update_metrics(State = #state{metrics = Metrics}) ->
-    [update_metric(Metric, State) || Metric <- Metrics].
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-update_metric(Metric = [_Pid, agents_count], #state{agents = Agents}) ->
-    mas_reporter:update(Metric, length(Agents));
-update_metric(Metric = [_Pid, Behaviour], State) ->
-    #state{behaviours_counter = Counter} = State,
-    mas_reporter:update(Metric, dict:fetch(Behaviour, Counter)).
+schedule_next_step() ->
+    self() ! process.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 schedule_metrics_update(#state{write_interval = WriteInterval}) ->
     erlang:send_after(WriteInterval, self(), update_metrics).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-log_metrics(State) ->
-    #state{agents = Agents,
-           behaviours_counter = Counter,
-           received_agents = ReceivedAgents} = State,
-    TotalEnergy = total_energy(State),
-    Data = [
-        {received_agents, ReceivedAgents},
-        {total_energy, TotalEnergy},
-        {agents_count, length(Agents)} | dict:to_list(Counter)
-    ],
-    mas_logger:debug("~p", [Data]).
-
-%%------------------------------------------------------------------------------
-%% @private
-%%------------------------------------------------------------------------------
-total_energy(#state{module = Mod, agents = Agents}) ->
-    lists:foldl(fun (Agent, Acc) -> Acc + Mod:energy(Agent) end, 0, Agents).
