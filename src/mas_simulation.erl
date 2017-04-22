@@ -30,7 +30,19 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {simulation :: simulation()}).
+-record(state, {module      :: module(),
+                mod_state   :: mod_state(),
+                simulation  :: simulation()}).
+
+%%%=============================================================================
+%%% Behaviour
+%%%=============================================================================
+
+-callback start(sim_params()) ->
+    any().
+
+-callback stop(sim_params()) ->
+    any().
 
 %%%=============================================================================
 %%% API functions
@@ -65,12 +77,13 @@ stop_simulation() ->
 init(_Args) ->
     process_flag(trap_exit, true),
     mas_reporter:setup(),
-    {ok, idle, #state{}}.
+    {ok, idle, #state{module = mas_config:get_env(simulation_mod)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-idle({start_simulation, SP, Time}, From, State) ->
+idle({start_simulation, SP, Time}, From, State = #state{module = Mod}) ->
+    Mod:start(SP),
     mas_sup:start_simulation(SP),
     schedule_timer(Time),
     Simulation = simulation_record(SP, Time, From),
@@ -127,8 +140,9 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_stop_simulation(#state{simulation = Simulation}) ->
-    #simulation{result_sink = ResultSink} = Simulation,
+do_stop_simulation(#state{module = Mod, simulation = Simulation}) ->
+    #simulation{sim_params = SP, result_sink = ResultSink} = Simulation,
+    Mod:stop(SP),
     mas_sup:stop_simulation(),
     gen_fsm:reply(ResultSink, stopped).
 
