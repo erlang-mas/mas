@@ -25,6 +25,7 @@
 -record(state, {module          :: module(),
                 mod_state       :: mod_state(),
                 agents          :: population(),
+                step            :: integer(),
                 metrics         :: counter(),
                 write_interval  :: integer()}).
 
@@ -102,6 +103,7 @@ handle_info(make_step, State) ->
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
+           step = Step,
            metrics = Metrics} = State,
     {NewAgents, Emigrants, NewModState} = Mod:step(Agents, ModState),
     migrate_agents(Emigrants),
@@ -109,11 +111,13 @@ handle_info(make_step, State) ->
     schedule_next_step(),
     {noreply, State#state{mod_state = NewModState,
                           agents = NewAgents,
+                          step = Step + 1,
                           metrics = NewMetrics}};
 handle_info(report_metrics, State) ->
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
+           step = Step,
            metrics = Metrics,
            write_interval = WriteInterval} = State,
     {ModMetrics, NewModState} = Mod:metrics(Agents, ModState),
@@ -155,6 +159,7 @@ init_state(SP) ->
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
+           step = 1,
            metrics = Metrics,
            write_interval = WriteInterval}.
 
