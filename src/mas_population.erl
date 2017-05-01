@@ -22,13 +22,13 @@
          terminate/2,
          code_change/3]).
 
--record(state, {module          :: module(),
-                mod_state       :: mod_state(),
-                agents          :: population(),
-                step            :: integer(),
-                measurement     :: integer(),
-                metrics         :: counter(),
-                write_interval  :: integer()}).
+-record(state, {module                :: module(),
+                mod_state             :: mod_state(),
+                agents                :: population(),
+                step                  :: integer(),
+                measurement           :: integer(),
+                metrics               :: counter(),
+                measurement_interval  :: integer()}).
 
 %%%=============================================================================
 %%% Behaviour
@@ -75,7 +75,7 @@ init(SP) ->
     mas_utils:seed_random(),
     State = init_state(SP),
     schedule_next_step(),
-    schedule_metrics_report(State#state.write_interval),
+    schedule_measurement(State#state.measurement_interval),
     {ok, State}.
 
 %%------------------------------------------------------------------------------
@@ -114,18 +114,18 @@ handle_info(make_step, State) ->
                           agents = NewAgents,
                           step = Step + 1,
                           metrics = NewMetrics}};
-handle_info(report_metrics, State) ->
+handle_info(measure, State) ->
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
            measurement = Measurement,
            metrics = Metrics,
-           write_interval = WriteInterval} = State,
+           measurement_interval = MeasurementInterval} = State,
     {ModMetrics, NewModState} = Mod:metrics(Agents, ModState),
     M1 = update_metric(agents_count, length(Agents), Metrics),
     M2 = mas_counter:reset(M1),
     report_metrics(Measurement, dict:to_list(ModMetrics ++ M1)),
-    schedule_metrics_report(WriteInterval),
+    schedule_measurement(MeasurementInterval),
     {noreply, State#state{mod_state = NewModState,
                           measurement = Measurement + 1,
                           metrics = M2}};
@@ -154,7 +154,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 init_state(SP) ->
     Mod = mas_config:get_env(population_mod),
-    WriteInterval = mas_config:get_env(write_interval),
+    MeasurementInterval = mas_config:get_env(measurement_interval),
     InitialAgents = generate_population(Mod, SP),
     {Agents, ModState} = Mod:init(InitialAgents, SP),
     Metrics = mas_counter:new([migrations, agents_count, received_agents]),
@@ -164,7 +164,7 @@ init_state(SP) ->
            step = 1,
            measurement = 1,
            metrics = Metrics,
-           write_interval = WriteInterval}.
+           measurement_interval = MeasurementInterval}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -188,8 +188,8 @@ schedule_next_step() ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-schedule_metrics_report(WriteInterval) ->
-    erlang:send_after(WriteInterval, self(), report_metrics).
+schedule_measurement(MeasurementInterval) ->
+    erlang:send_after(MeasurementInterval, self(), measure).
 
 %%------------------------------------------------------------------------------
 %% @private
