@@ -91,8 +91,11 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({add_agents, NewAgents}, State = #state{agents = Agents}) ->
-    {noreply, State#state{agents = Agents ++ NewAgents}};
+handle_cast({add_agents, NewAgents}, State) ->
+    #state{agents = Agents, metrics = Metrics} = State,
+    NewMetrics = update_metric(received_agents, length(NewAgents), Metrics),
+    {noreply, State#state{agents = Agents ++ NewAgents,
+                          metrics = NewMetrics}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -155,7 +158,7 @@ init_state(SP) ->
     WriteInterval = mas_config:get_env(write_interval),
     InitialAgents = generate_population(Mod, SP),
     {Agents, ModState} = Mod:init(InitialAgents, SP),
-    Metrics = mas_counter:new([migrations, agents_count]),
+    Metrics = mas_counter:new([migrations, agents_count, received_agents]),
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
