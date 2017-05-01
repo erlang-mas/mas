@@ -44,9 +44,6 @@
     {population(), mod_state()} |
     {population(), population(), mod_state()}.
 
--callback metrics() ->
-    [metric()].
-
 -callback metrics(population(), mod_state()) ->
     {[metric_entry()], mod_state()}.
 
