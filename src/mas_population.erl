@@ -44,7 +44,7 @@
     {population(), mod_state()} |
     {population(), population(), mod_state()}.
 
--callback metrics(population(), mod_state()) ->
+-callback measure(population(), mod_state()) ->
     {[metric_entry()], mod_state()}.
 
 -callback terminate(population(), mod_state()) ->
@@ -121,7 +121,7 @@ handle_info(measure, State) ->
            measurement = Measurement,
            metrics = Metrics,
            measurement_interval = MeasurementInterval} = State,
-    {ModMetrics, NewModState} = Mod:metrics(Agents, ModState),
+    {ModMetrics, NewModState} = Mod:measure(Agents, ModState),
     M1 = update_metric(agents_count, length(Agents), Metrics),
     M2 = mas_counter:reset(M1),
     report_metrics(Measurement, ModMetrics ++ dict:to_list(M1)),
