@@ -124,7 +124,7 @@ handle_info(measure, State) ->
     {ModMetrics, NewModState} = Mod:metrics(Agents, ModState),
     M1 = update_metric(agents_count, length(Agents), Metrics),
     M2 = mas_counter:reset(M1),
-    report_metrics(Measurement, dict:to_list(ModMetrics ++ M1)),
+    report_metrics(Measurement, ModMetrics ++ dict:to_list(M1)),
     schedule_measurement(MeasurementInterval),
     {noreply, State#state{mod_state = NewModState,
                           measurement = Measurement + 1,
