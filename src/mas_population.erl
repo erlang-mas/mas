@@ -26,6 +26,7 @@
                 mod_state       :: mod_state(),
                 agents          :: population(),
                 step            :: integer(),
+                measurement     :: integer(),
                 metrics         :: counter(),
                 write_interval  :: integer()}).
 
@@ -120,15 +121,16 @@ handle_info(report_metrics, State) ->
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
-           step = Step,
+           measurement = Measurement,
            metrics = Metrics,
            write_interval = WriteInterval} = State,
     {ModMetrics, NewModState} = Mod:metrics(Agents, ModState),
     M1 = update_metric(agents_count, length(Agents), Metrics),
     M2 = mas_counter:reset(M1),
-    report_metrics(dict:to_list(ModMetrics ++ M1)),
+    report_metrics(Measurement, dict:to_list(ModMetrics ++ M1)),
     schedule_metrics_report(WriteInterval),
     {noreply, State#state{mod_state = NewModState,
+                          measurement = Measurement + 1,
                           metrics = M2}};
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -163,6 +165,7 @@ init_state(SP) ->
            mod_state = ModState,
            agents = Agents,
            step = 1,
+           measurement = 1,
            metrics = Metrics,
            write_interval = WriteInterval}.
 
@@ -200,5 +203,5 @@ update_metric(Name, Value, Metrics) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-report_metrics(Metrics) ->
-    mas_logger:info("~p", [Metrics]).
+report_metrics(Measurement, Metrics) ->
+    mas_logger:info("~p", [[{measurement, Measurement} | Metrics]]).
