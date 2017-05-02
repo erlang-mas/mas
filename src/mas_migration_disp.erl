@@ -56,11 +56,12 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 handle_cast({migrate_agents, Agents, Source}, State) ->
     #state{node_migration_probability = NMP} = State,
-    MigrationBroker = case rand:uniform() < NMP of
-                          true -> mas_world_broker;
-                          false -> mas_world
-                      end,
-    MigrationBroker:migrate_agents(Agents, Source),
+    case rand:uniform() < NMP of
+        true ->
+            mas_world_broker:migrate_agents(Agents, Source);
+        false ->
+            mas_world:migrate_agents(Agents, Source)
+    end,
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
