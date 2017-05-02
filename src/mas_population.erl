@@ -155,7 +155,8 @@ code_change(_OldVsn, State, _Extra) ->
 init_state(SP) ->
     Mod = mas_config:get_env(population_mod),
     MeasurementInterval = mas_config:get_env(measurement_interval),
-    InitialAgents = generate_population(Mod, SP),
+    Size = mas_config:get_env(population_size),
+    InitialAgents = generate_population(Mod, SP, Size),
     {Agents, ModState} = Mod:init(InitialAgents, SP),
     Metrics = mas_counter:new([migrations, agents_count, received_agents]),
     #state{module = Mod,
@@ -169,8 +170,7 @@ init_state(SP) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-generate_population(Mod, SP) ->
-    Size = mas_config:get_env(population_size),
+generate_population(Mod, SP, Size) ->
     [Mod:init_agent(SP) || _ <- lists:seq(1, Size)].
 
 %%------------------------------------------------------------------------------
