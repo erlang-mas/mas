@@ -12,7 +12,7 @@
 
 %%% API
 -export([start_link/0,
-         migrate_agents/1]).
+         migrate_agents/2]).
 
 %%% Server callbacks
 -export([init/1,
@@ -34,8 +34,8 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-migrate_agents(Agents) ->
-    gen_server:cast(?SERVER, {migrate_agents, Agents, {node(), self()}}).
+migrate_agents(Agents, Source) ->
+    gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -61,7 +61,7 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, _Source = {Node, Population}}, State) ->
+handle_cast({migrate_agents, Agents, {Node, Population}}, State) ->
     #state{nodes = Nodes, topology = Topology} = State,
     case mas_topology:destinations(Topology, Nodes, Node) of
         {ok, Destinations} ->

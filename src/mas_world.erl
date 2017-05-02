@@ -11,7 +11,8 @@
 
 %%% API
 -export([start_link/0,
-         migrate_agents/1]).
+         migrate_agents/2,
+         put_agents/2]).
 
 %%% Server callbacks
 -export([init/1,
@@ -33,8 +34,11 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-migrate_agents(Agents) ->
-    gen_server:cast(?SERVER, {migrate_agents, Agents, self()}).
+migrate_agents(Agents, {_Node, Population}) ->
+    gen_server:cast(?SERVER, {migrate_agents, Agents, Population}).
+
+put_agents(Node, Agents) ->
+    gen_server:cast({?SERVER, Node}, {migrate_agents, Agents, none}).
 
 %%%=============================================================================
 %%% Server callbacks

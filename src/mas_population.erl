@@ -176,6 +176,8 @@ generate_population(Mod, SP) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+migrate_agents([]) ->
+    ok;
 migrate_agents(Emigrants) ->
     mas_migration_disp:migrate_agents(Emigrants).
 
