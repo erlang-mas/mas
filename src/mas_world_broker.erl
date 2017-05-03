@@ -24,8 +24,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {nodes       :: [node()],
-                topology    :: topology()}).
+-record(state, {topology    :: topology()}).
 
 %%%=============================================================================
 %%% API functions
@@ -49,8 +48,9 @@ init(_Args) ->
     mas_utils:seed_random(),
     Nodes = discover_nodes(),
     mas_logger:info("Connected nodes: ~p", [Nodes]),
-    {ok, #state{nodes = Nodes,
-                topology = mas_config:get_env(nodes_topology)}}.
+    TopologyType = mas_config:get_env(nodes_topology),
+    Topology = mas_topology:new(TopologyType, Nodes),
+    {ok, #state{topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -62,12 +62,12 @@ handle_call(_Request, _From, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_cast({migrate_agents, Agents, {Node, Population}}, State) ->
-    #state{nodes = Nodes, topology = Topology} = State,
-    case mas_topology:destinations(Topology, Nodes, Node) of
-        {ok, Destinations} ->
-            mas_migration:send_to_nodes(Destinations, Agents);
-        no_destination ->
-            mas_migration:send_back(Population, Agents)
+    #state{topology = Topology} = State,
+    case mas_topology:nodes_from(Node, Topology) of
+        [] ->
+            mas_migration:send_back(Population, Agents);
+        Destinations ->
+            mas_migration:send_to_nodes(Destinations, Agents)
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
@@ -76,14 +76,14 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info({nodeup, Node}, State = #state{nodes = Nodes}) ->
+handle_info({nodeup, Node}, State = #state{topology = Topology}) ->
     mas_logger:info("Node ~p connected", [Node]),
-    NewNodes = lists:usort([Node | Nodes]),
-    {noreply, State#state{nodes = NewNodes}};
-handle_info({nodedown, Node}, State= #state{nodes = Nodes}) ->
+    NewTopology = mas_topology:add_node(Node, Topology),
+    {noreply, State#state{topology = NewTopology}};
+handle_info({nodedown, Node}, State= #state{topology = Topology}) ->
     mas_logger:info("Node ~p disconnected", [Node]),
-    NewNodes = lists:usort(Nodes -- [Node]),
-    {noreply, State#state{nodes = NewNodes}};
+    NewTopology = mas_topology:remove_node(Node, Topology),
+    {noreply, State#state{topology = NewTopology}};
 handle_info(_Info, State) ->
     {noreply, State}.
 

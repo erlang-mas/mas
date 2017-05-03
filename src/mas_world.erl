@@ -24,8 +24,7 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {populations :: [pid()],
-                topology    :: topology()}).
+-record(state, {topology    :: topology()}).
 
 %%%=============================================================================
 %%% API functions
@@ -50,7 +49,9 @@ put_agents(Node, Agents) ->
 init(_Args) ->
     mas_utils:seed_random(),
     self() ! spawn_populations,
-    {ok, #state{topology = mas_config:get_env(topology)}}.
+    TopologyType = mas_config:get_env(topology),
+    Topology = mas_topology:new(TopologyType),
+    {ok, #state{topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -62,12 +63,12 @@ handle_call(_Request, _From, State) ->
 %% @private
 %%------------------------------------------------------------------------------
 handle_cast({migrate_agents, Agents, Population}, State) ->
-    #state{populations = Populations, topology = Topology} = State,
-    case mas_topology:destinations(Topology, Populations, Population) of
-        {ok, Destinations} ->
-            mas_migration:send_to_populations(Destinations, Agents);
-        no_destination ->
-            mas_migration:send_back(Population, Agents)
+    #state{topology = Topology} = State,
+    case mas_topology:nodes_from(Population, Topology) of
+        [] ->
+            mas_migration:send_back(Population, Agents);
+        Destinations ->
+            mas_migration:send_to_populations(Destinations, Agents)
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
@@ -76,9 +77,11 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State) ->
+handle_info(spawn_populations, State = #state{topology = Topology}) ->
     Count = mas_config:get_env(population_count),
-    {noreply, State#state{populations = spawn_populations(Count)}};
+    Populations = spawn_populations(Count),
+    NewTopology = mas_topology:add_nodes(Populations, Topology),
+    {noreply, State#state{topology = NewTopology}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
