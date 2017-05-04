@@ -259,6 +259,7 @@ unsubscribe_metrics(#state{metrics = Metrics}) ->
 %% @private
 %%------------------------------------------------------------------------------
 update_metrics(State = #state{metrics = Metrics}) ->
+    mas_logger:info("~p", [dict:to_list(State#state.behaviours_counter)]),
     [update_metric(Metric, State) || Metric <- Metrics].
 
 %%------------------------------------------------------------------------------
