@@ -11,6 +11,7 @@
          add_node/2,
          add_nodes/2,
          remove_node/2,
+         nodes/1,
          nodes_from/2]).
 
 -record(topology, {type     :: atom(),
@@ -57,6 +58,13 @@ add_nodes(Nodes, Topology) ->
 %%------------------------------------------------------------------------------
 remove_node(Node, Topology = #topology{type = Type}) ->
     do_remove_node(Type, Node, Topology).
+
+%%------------------------------------------------------------------------------
+%% @doc Returns all nodes belonging to topology.
+%% @end
+%%------------------------------------------------------------------------------
+nodes(#topology{graph = G}) ->
+    digraph:vertices(G).
 
 %%------------------------------------------------------------------------------
 %% @doc Returns all neighbour nodes accessible from given source node.

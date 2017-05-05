@@ -37,7 +37,7 @@ migrate_agents(Agents, {_Node, Population}) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, Population}).
 
 put_agents(Node, Agents) ->
-    gen_server:cast({?SERVER, Node}, {migrate_agents, Agents, none}).
+    gen_server:cast({?SERVER, Node}, {put_agents, Agents}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -67,6 +67,15 @@ handle_cast({migrate_agents, Agents, Population}, State) ->
     case mas_topology:nodes_from(Population, Topology) of
         [] ->
             mas_migration:send_back(Population, Agents);
+        Destinations ->
+            mas_migration:send_to_populations(Destinations, Agents)
+    end,
+    {noreply, State};
+handle_cast({put_agents, Agents}, State) ->
+    #state{topology = Topology} = State,
+    case mas_topology:nodes(Topology) of
+        [] ->
+            mas_logger:warning("No destination for migration target");
         Destinations ->
             mas_migration:send_to_populations(Destinations, Agents)
     end,
