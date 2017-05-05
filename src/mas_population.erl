@@ -203,4 +203,4 @@ update_metric(Name, Value, Metrics) ->
 %% @private
 %%------------------------------------------------------------------------------
 report_metrics(Measurement, Metrics) ->
-    mas_logger:info("~p", [[{measurement, Measurement} | Metrics]]).
+    mas_logger:info("<MEASUREMENT-~p> ~p", [Measurement, Metrics]).
