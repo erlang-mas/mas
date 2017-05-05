@@ -24,7 +24,7 @@ start_link(SP) ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, SP).
 
 %%------------------------------------------------------------------------------
-%% @doc Spawns single agents population, returns it pid.
+%% @doc Spawns single population of agents.
 %% @end
 %%------------------------------------------------------------------------------
 spawn_population() ->

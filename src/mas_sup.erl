@@ -25,8 +25,7 @@ start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%------------------------------------------------------------------------------
-%% @doc Starts supervisor monitoring all proceses responsible for processing
-%%      the simulation.
+%% @doc Starts simulation supervisor.
 %% @end
 %%------------------------------------------------------------------------------
 start_simulation(SP) ->

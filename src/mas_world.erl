@@ -33,8 +33,8 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-migrate_agents(Agents, {_Node, Population}) ->
-    gen_server:cast(?SERVER, {migrate_agents, Agents, Population}).
+migrate_agents(Agents, Source) ->
+    gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
 put_agents(Node, Agents) ->
     gen_server:cast({?SERVER, Node}, {put_agents, Agents}).
@@ -62,7 +62,7 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, Population}, State) ->
+handle_cast({migrate_agents, Agents, {_Node, Population}}, State) ->
     #state{topology = Topology} = State,
     case mas_topology:nodes_from(Population, Topology) of
         [] ->
