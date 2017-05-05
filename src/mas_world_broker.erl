@@ -50,7 +50,7 @@ init(_Args) ->
     mas_logger:info("Connected nodes: ~p", [Nodes]),
     TopologyType = mas_config:get_env(nodes_topology),
     Topology = mas_topology:new(TopologyType, Nodes),
-    {ok, #state{topology = Topology}}.
+    {ok, #state{topology = rebuild_topology(Topology)}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -79,11 +79,11 @@ handle_cast(_Msg, State) ->
 handle_info({nodeup, Node}, State = #state{topology = Topology}) ->
     mas_logger:info("Node ~p connected", [Node]),
     NewTopology = mas_topology:add_node(Node, Topology),
-    {noreply, State#state{topology = NewTopology}};
-handle_info({nodedown, Node}, State= #state{topology = Topology}) ->
+    {noreply, State#state{topology = rebuild_topology(NewTopology)}};
+handle_info({nodedown, Node}, State = #state{topology = Topology}) ->
     mas_logger:info("Node ~p disconnected", [Node]),
     NewTopology = mas_topology:remove_node(Node, Topology),
-    {noreply, State#state{topology = NewTopology}};
+    {noreply, State#state{topology = rebuild_topology(NewTopology)}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -114,3 +114,11 @@ discover_nodes() ->
         Hosts ->
             net_adm:world(Hosts)
     end.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+rebuild_topology(Topology) ->
+    Nodes = mas_topology:nodes(Topology),
+    ResetTopology = mas_topology:reset(Topology),
+    mas_topology:add_nodes(lists:usort(Nodes), ResetTopology).

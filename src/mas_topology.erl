@@ -12,7 +12,8 @@
          add_nodes/2,
          remove_node/2,
          nodes/1,
-         nodes_from/2]).
+         nodes_from/2,
+         reset/1]).
 
 -record(topology, {type     :: atom(),
                    graph    :: digraph:graph(),
@@ -72,6 +73,14 @@ nodes(#topology{graph = G}) ->
 %%------------------------------------------------------------------------------
 nodes_from(Node, #topology{graph = G}) ->
     digraph:out_neighbours(G, Node).
+
+%%------------------------------------------------------------------------------
+%% @doc Removes topology graph and returns new topology.
+%% @end
+%%------------------------------------------------------------------------------
+reset(#topology{type = Type, graph = G}) ->
+    digraph:delete(G),
+    new(Type).
 
 %%%=============================================================================
 %%% Internal functions
