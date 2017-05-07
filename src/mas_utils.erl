@@ -14,7 +14,8 @@
          to_string/1,
          seed_random/0,
          partition/2,
-         random_partition/2]).
+         random_partition/2,
+         pick_random/1]).
 
 %%%=============================================================================
 %%% API functions
@@ -106,6 +107,14 @@ partition(L, N) ->
 %%------------------------------------------------------------------------------
 random_partition(Prob, L) ->
     lists:partition(fun (_) -> rand:uniform() < Prob end, L).
+
+%%------------------------------------------------------------------------------
+%% @doc Picks random element from the list.
+%% @end
+%%------------------------------------------------------------------------------
+pick_random(L) ->
+    Idx = rand:uniform(length(L)),
+    lists:nth(Idx, L).
 
 %%%=============================================================================
 %%% Internal functions

@@ -67,7 +67,8 @@ handle_cast({migrate_agents, Agents, {Node, Population}}, State) ->
         [] ->
             mas_migration:send_back(Population, Agents);
         Destinations ->
-            mas_migration:send_to_nodes(Destinations, Agents)
+            Destination = mas_utils:pick_random(Destinations),
+            mas_migration:send_to_nodes([Destination], Agents)
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
