@@ -46,11 +46,10 @@ migrate_agents(Agents, Source) ->
 init(_Args) ->
     net_kernel:monitor_nodes(true),
     mas_utils:seed_random(),
-    Nodes = discover_nodes(),
-    mas_logger:info("Connected nodes: ~p", [Nodes]),
     TopologyType = mas_config:get_env(nodes_topology),
-    Topology = mas_topology:new(TopologyType, Nodes),
-    {ok, #state{topology = rebuild_topology(Topology)}}.
+    Topology = mas_topology:new(TopologyType),
+    self() ! discover_nodes,
+    {ok, #state{topology = Topology}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -77,6 +76,11 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
+handle_info(discover_nodes, State = #state{topology = Topology}) ->
+    Nodes = discover_nodes(),
+    mas_logger:info("Connected nodes: ~p", [Nodes]),
+    NewTopology = mas_topology:add_nodes(Nodes, Topology),
+    {noreply, State#state{topology = rebuild_topology(NewTopology)}};
 handle_info({nodeup, Node}, State = #state{topology = Topology}) ->
     mas_logger:info("Node ~p connected", [Node]),
     NewTopology = mas_topology:add_node(Node, Topology),
