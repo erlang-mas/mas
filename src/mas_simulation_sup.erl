@@ -40,14 +40,14 @@ init(SP) ->
        permanent, 1000, worker, [mas_migration_disp]
       },
 
-      {mas_world,
-       {mas_world, start_link, []},
-       temporary, 1000, worker, [mas_world]
-      },
-
       {mas_world_broker,
        {mas_world_broker, start_link, []},
        temporary, 1000, worker, [mas_world_broker]
+      },
+
+      {mas_world,
+       {mas_world, start_link, []},
+       temporary, 1000, worker, [mas_world]
       }
      ]
     }}.
