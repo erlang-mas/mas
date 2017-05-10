@@ -24,7 +24,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {topology    :: topology()}).
+-record(state, {topology        :: topology(),
+                connected_nodes :: [node()]}).
 
 %%%=============================================================================
 %%% API functions
@@ -46,10 +47,8 @@ migrate_agents(Agents, Source) ->
 init(_Args) ->
     net_kernel:monitor_nodes(true),
     mas_utils:seed_random(),
-    TopologyType = mas_config:get_env(nodes_topology),
-    Topology = mas_topology:new(TopologyType),
-    self() ! discover_nodes,
-    {ok, #state{topology = Topology}}.
+    self() ! connect_nodes,
+    {ok, #state{}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -76,19 +75,26 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(discover_nodes, State = #state{topology = Topology}) ->
-    Nodes = discover_nodes(),
-    mas_logger:info("Connected nodes: ~p", [Nodes]),
-    NewTopology = mas_topology:add_nodes(Nodes, Topology),
-    {noreply, State#state{topology = rebuild_topology(NewTopology)}};
-handle_info({nodeup, Node}, State = #state{topology = Topology}) ->
+handle_info(connect_nodes, State) ->
+    Topology = build_topology(),
+    {ok, Localhost} = inet:gethostname(),
+    NeighbourHosts = mas_topology:nodes_from(list_to_atom(Localhost), Topology),
+    ConnectedNodes = net_adm:world_list(NeighbourHosts, verbose),
+    mas_logger:info("Connected nodes: ~p", [ConnectedNodes]),
+    mas_logger:debug("Nodes (connected): ", [nodes(connected)]),
+    mas_logger:debug("Nodes (hidden): ", [nodes(hidden)]),
+    {noreply, State#state{topology = Topology,
+                          connected_nodes = ConnectedNodes}};
+handle_info({nodeup, Node}, State) ->
+    #state{connected_nodes = ConnectedNodes} = State,
     mas_logger:info("Node ~p connected", [Node]),
-    NewTopology = mas_topology:add_node(Node, Topology),
-    {noreply, State#state{topology = rebuild_topology(NewTopology)}};
-handle_info({nodedown, Node}, State = #state{topology = Topology}) ->
+    NewConnectedNodes = lists:usort(ConnectedNodes ++ [Node]),
+    {noreply, State#state{connected_nodes = NewConnectedNodes}};
+handle_info({nodedown, Node}, State) ->
+    #state{connected_nodes = ConnectedNodes} = State,
     mas_logger:info("Node ~p disconnected", [Node]),
-    NewTopology = mas_topology:remove_node(Node, Topology),
-    {noreply, State#state{topology = rebuild_topology(NewTopology)}};
+    NewConnectedNodes = lists:usort(ConnectedNodes -- [Node]),
+    {noreply, State#state{connected_nodes = NewConnectedNodes}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -111,19 +117,18 @@ code_change(_OldVsn, State, _Extra) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-discover_nodes() ->
-    case net_adm:host_file() of
-        {error, _Reason} ->
-            mas_logger:warning("Hosts file not found"),
-            [];
-        Hosts ->
-            net_adm:world(Hosts)
-    end.
+build_topology() ->
+    Type = mas_config:get_env(nodes_topology),
+    Hosts = load_hosts_from_file(),
+    mas_topology:new(Type, Hosts).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-rebuild_topology(Topology) ->
-    Nodes = mas_topology:nodes(Topology),
-    ResetTopology = mas_topology:reset(Topology),
-    mas_topology:add_nodes(lists:usort(Nodes), ResetTopology).
+load_hosts_from_file() ->
+    case net_adm:host_file() of
+        {error, _Reason} ->
+            mas_logger:warning("Hosts file not found"),
+            [];
+        Hosts -> Hosts
+    end.

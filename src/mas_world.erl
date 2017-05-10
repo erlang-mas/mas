@@ -49,9 +49,7 @@ put_agents(Node, Agents) ->
 init(_Args) ->
     mas_utils:seed_random(),
     self() ! spawn_populations,
-    TopologyType = mas_config:get_env(topology),
-    Topology = mas_topology:new(TopologyType),
-    {ok, #state{topology = Topology}}.
+    {ok, #state{}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -86,11 +84,11 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_info(spawn_populations, State = #state{topology = Topology}) ->
+handle_info(spawn_populations, State) ->
     Count = mas_config:get_env(population_count),
     Populations = spawn_populations(Count),
-    NewTopology = mas_topology:add_nodes(Populations, Topology),
-    {noreply, State#state{topology = NewTopology}};
+    Topology = build_topology(Populations),
+    {noreply, State#state{topology = Topology}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -109,6 +107,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%%=============================================================================
 %%% Internal functions
 %%%=============================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+build_topology(Nodes) ->
+    Type = mas_config:get_env(topology),
+    mas_topology:new(Type, Nodes).
 
 %%------------------------------------------------------------------------------
 %% @private
