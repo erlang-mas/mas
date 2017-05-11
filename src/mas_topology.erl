@@ -22,7 +22,8 @@
 %% @end
 %%------------------------------------------------------------------------------
 new(Type, Nodes) ->
-    Graph = build_graph(Type, lists:usort(Nodes)),
+    Graph = digraph:new(),
+    build_graph(Type, lists:usort(Nodes), Graph),
     #topology{type = Type, graph = Graph}.
 
 %%------------------------------------------------------------------------------
@@ -46,39 +47,105 @@ nodes_from(Node, #topology{graph = Graph}) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-build_graph(Type, Nodes) ->
-    G = digraph:new(),
-    Indexes = lists:seq(1, length(Nodes)),
-    lists:foreach(fun (Idx) ->
-                      Neighbours = neighbours(Type, Idx, Indexes),
-                      Source = lists:nth(Idx, Nodes),
-                      digraph:add_vertex(G, Source),
-                      Destinations = [lists:nth(I, Nodes) || I <- Neighbours],
-                      connect(G, Source, Destinations)
-                  end, Indexes),
-    G.
+build_graph(_Type, [], _Graph) -> ok;
+build_graph(grid, Nodes, Graph) ->
+    NumNodes = length(Nodes),
+    Dim = nearest_square_base(NumNodes),
+    Grid = generate_grid(Dim),
+    Dirs = [{1, 0}, {-1, 0}, {0, 1}, {0, -1}],
+    NodeCells = lists:sublist(Grid, NumNodes),
+    CellConns = [cell_connections(Cell, NodeCells, Dirs) || Cell <- NodeCells],
+    IndexConns = cell_to_index_conns(CellConns, Dim),
+    NodeConns = index_to_node_conns(IndexConns, Nodes),
+    connect_nodes(NodeConns, Graph).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-connect(G, Source, Destinations) ->
-    [add_bidir_edge(G, Source, Destination) || Destination <- Destinations].
+generate_grid(Dim) ->
+    generate_grid(Dim, Dim).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-neighbours(mesh, Idx, Indexes) ->
-    Indexes -- [Idx];
+generate_grid(DimX, DimY) ->
+    [{X, Y} || X <- lists:seq(0, DimX - 1), Y <- lists:seq(1, DimY)].
 
-neighbours(ring, _Idx, Indexes) when length(Indexes) =:= 1 -> [];
-neighbours(ring, Idx, Indexes) when length(Indexes) =:= 2 ->
-    Indexes -- [Idx];
-neighbours(ring, Idx, Indexes) when Idx =:= 1 ->
-    [length(Indexes), 2];
-neighbours(ring, Idx, Indexes) when Idx =:= length(Indexes) ->
-    [length(Indexes) - 1, 1];
-neighbours(ring, Idx, _Indexes) ->
-    [Idx - 1, Idx + 1].
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+cell_connections(Cell, Grid, Dirs) ->
+    {Cell, cell_neighbours(Cell, Grid, Dirs)}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+cell_neighbours({X, Y}, Grid, Dirs) ->
+    NeighCells = [{X + DirX, Y + DirY} || {DirX, DirY} <- Dirs],
+    cells_inside_grid(NeighCells, Grid).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+cells_inside_grid(Cells, Grid) ->
+    [Cell || Cell <- Cells, lists:member(Cell, Grid)].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+cell_to_index_conns(CellConns, Dim) ->
+    [cell_to_index_conn(CellConn, Dim) || CellConn <- CellConns].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+cell_to_index_conn({Cell, NeighCells}, Dim) ->
+    NeighIndexes = [cell_to_index(NeighCell, Dim) || NeighCell <- NeighCells],
+    {cell_to_index(Cell, Dim), NeighIndexes}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+index_to_node_conns(IndexConns, Nodes) ->
+    [index_to_node_conn(IndexConn, Nodes) || IndexConn <- IndexConns].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+index_to_node_conn({Idx, NeighIndexes}, Nodes) ->
+    NeighNodes = [lists:nth(NeighIdx, Nodes) || NeighIdx <- NeighIndexes],
+    {lists:nth(Idx, Nodes), NeighNodes}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+cell_to_index({X, Y}, Dim) ->
+    X * Dim + Y.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+connect_nodes([], _G) -> ok;
+connect_nodes([{SrcNode, DstNodes} | NodeConns], G) ->
+    digraph:add_vertex(G, SrcNode),
+    [add_bidir_edge(G, SrcNode, DstNode) || DstNode <- DstNodes],
+    connect_nodes(NodeConns, G).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+nearest_square_base(N) ->
+    nearest_square_base(N, 1).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+nearest_square_base(N, I) ->
+    Square = I * I,
+    case Square > N of
+        true -> I;
+        false -> nearest_square_base(N, I + 1)
+    end.
 
 %%------------------------------------------------------------------------------
 %% @private
