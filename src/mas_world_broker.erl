@@ -59,20 +59,18 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, {Node, Population}}, State) ->
-    #state{topology = Topology} = State,
-    case mas_topology:nodes_from(Node, Topology) of
-        [] ->
+handle_cast({migrate_agents, Agents, _Source = {_Node, Population}}, State) ->
+    case State#state.connected_nodes of
+        []  ->
             mas_migration:send_back(Population, Agents);
-        Destinations ->
-            Destination = mas_utils:pick_random(Destinations),
-            mas_migration:send_to_nodes([Destination], Agents)
+        Nodes ->
+            mas_migration:send_to_nodes(Nodes, Agents)
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-%%------------------------------------------------------------------------------
+%%----------s--------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 handle_info(connect_nodes, State) ->
