@@ -80,9 +80,12 @@ handle_info(connect_nodes, State) ->
     {ok, Localhost} = inet:gethostname(),
     NeighbourHosts = mas_topology:nodes_from(list_to_atom(Localhost), Topology),
     ConnectedNodes = net_adm:world_list(NeighbourHosts, verbose),
+    mas_logger:info("Localhost: ~p", [list_to_atom(Localhost)]),
+    mas_logger:info("Neighbour hosts: ~p", [NeighbourHosts]),
+
     mas_logger:info("Connected nodes: ~p", [ConnectedNodes]),
-    mas_logger:debug("Nodes (connected): ", [nodes(connected)]),
-    mas_logger:debug("Nodes (hidden): ", [nodes(hidden)]),
+    mas_logger:info("Nodes (connected): ~p", [nodes(connected)]),
+    mas_logger:info("Nodes (hidden): ~p", [nodes(hidden)]),
     {noreply, State#state{topology = Topology,
                           connected_nodes = ConnectedNodes}};
 handle_info({nodeup, Node}, State) ->
@@ -120,6 +123,7 @@ code_change(_OldVsn, State, _Extra) ->
 build_topology() ->
     Type = mas_config:get_env(nodes_topology),
     Hosts = load_hosts_from_file(),
+    mas_logger:info("Hosts: ~p", [Hosts]),
     mas_topology:new(Type, Hosts).
 
 %%------------------------------------------------------------------------------
