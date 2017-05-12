@@ -48,6 +48,9 @@ nodes_from(Node, #topology{graph = Graph}) ->
 %% @private
 %%------------------------------------------------------------------------------
 build_graph(_Type, [], _Graph) -> ok;
+build_graph(mesh, Nodes, Graph) ->
+    NodeConns = [{Node, Nodes -- [Node]} || Node <- Nodes],
+    connect_nodes(NodeConns, Graph);
 build_graph(grid, Nodes, Graph) ->
     NumNodes = length(Nodes),
     Dim = nearest_square_base(NumNodes),

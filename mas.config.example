@@ -4,7 +4,7 @@
    {population_mod, mas_test_population},
    {population_count, 12},
    {population_size, 100},
-   {topology, grid},
+   {topology, mesh},
    {migration_probability, 0.0001},
    {node_migration_probability, 0.00001},
    {nodes_topology, grid},
