@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @doc Discovers universe of interconnected nodes and handles agent migrations
+%%% @doc Maintains connection with neighour nodes and handles agent migrations
 %%%      between them.
 %%% @end
 %%%-----------------------------------------------------------------------------
@@ -34,6 +34,11 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
+%%------------------------------------------------------------------------------
+%% @doc Migrates agents to neighbour nodes. If there are no neighbour nodes,
+%%%     sends agents back to source population.
+%% @end
+%%------------------------------------------------------------------------------
 migrate_agents(Agents, Source) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
@@ -75,15 +80,9 @@ handle_cast(_Msg, State) ->
 %%------------------------------------------------------------------------------
 handle_info(connect_nodes, State) ->
     Topology = build_topology(),
-    {ok, Localhost} = inet:gethostname(),
-    NeighbourHosts = mas_topology:nodes_from(list_to_atom(Localhost), Topology),
-    ConnectedNodes = net_adm:world_list(NeighbourHosts, verbose),
-    mas_logger:info("Localhost: ~p", [list_to_atom(Localhost)]),
-    mas_logger:info("Neighbour hosts: ~p", [NeighbourHosts]),
-
-    mas_logger:info("Connected nodes: ~p", [ConnectedNodes]),
-    mas_logger:info("Nodes (connected): ~p", [nodes(connected)]),
-    mas_logger:info("Nodes (hidden): ~p", [nodes(hidden)]),
+    NeighHosts = mas_topology:nodes_from(localhost(), Topology),
+    ConnectedNodes = net_adm:world_list(NeighHosts, verbose),
+    log_connected_nodes(),
     {noreply, State#state{topology = Topology,
                           connected_nodes = ConnectedNodes}};
 handle_info({nodeup, Node}, State) ->
@@ -121,7 +120,7 @@ code_change(_OldVsn, State, _Extra) ->
 build_topology() ->
     Type = mas_config:get_env(nodes_topology),
     Hosts = load_hosts_from_file(),
-    mas_logger:info("Hosts: ~p", [Hosts]),
+    mas_logger:debug("Hosts: ~p", [Hosts]),
     mas_topology:new(Type, Hosts).
 
 %%------------------------------------------------------------------------------
@@ -134,3 +133,17 @@ load_hosts_from_file() ->
             [];
         Hosts -> Hosts
     end.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+localhost() ->
+    {ok, Localhost} = inet:gethostname(),
+    list_to_atom(Localhost).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+log_connected_nodes() ->
+    mas_logger:debug("Connected nodes: ~p", [nodes(connected)]),
+    mas_logger:debug("Connected hidden nodes: ~p", [nodes(hidden)]).
