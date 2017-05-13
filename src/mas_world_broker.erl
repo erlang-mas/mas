@@ -50,7 +50,7 @@ migrate_agents(Agents, Source) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    net_kernel:monitor_nodes(true, [{node_type, hidden}]),
+    net_kernel:monitor_nodes(true, [{node_type, hidden}, nodedown_reason]),
     mas_utils:seed_random(),
     self() ! connect_nodes,
     {ok, #state{}}.
@@ -85,14 +85,15 @@ handle_info(connect_nodes, State) ->
     log_connected_nodes(),
     {noreply, State#state{topology = Topology,
                           connected_nodes = ConnectedNodes}};
-handle_info({nodeup, Node}, State) ->
+handle_info({nodeup, Node, _InfoList}, State) ->
     #state{connected_nodes = ConnectedNodes} = State,
     mas_logger:info("Node ~p connected", [Node]),
     NewConnectedNodes = lists:usort(ConnectedNodes ++ [Node]),
     {noreply, State#state{connected_nodes = NewConnectedNodes}};
-handle_info({nodedown, Node}, State) ->
+handle_info({nodedown, Node, InfoList}, State) ->
     #state{connected_nodes = ConnectedNodes} = State,
-    mas_logger:info("Node ~p disconnected", [Node]),
+    {nodedown_reason, Reason} = lists:keyfind(nodedown_reason, 1, InfoList),
+    mas_logger:info("Node ~p disconnected with reason: ~p", [Node, Reason]),
     NewConnectedNodes = lists:usort(ConnectedNodes -- [Node]),
     {noreply, State#state{connected_nodes = NewConnectedNodes}};
 handle_info(_Info, State) ->
