@@ -91,9 +91,9 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 handle_cast({add_agents, NewAgents}, State) ->
     #state{agents = Agents, metrics = Metrics} = State,
-    NewMetrics = update_metric(received_agents, length(NewAgents), Metrics),
+    UpdatedMetrics = update_metric(received_agents, length(NewAgents), Metrics),
     {noreply, State#state{agents = Agents ++ NewAgents,
-                          metrics = NewMetrics}};
+                          metrics = UpdatedMetrics}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -108,27 +108,29 @@ handle_info(make_step, State) ->
            metrics = Metrics} = State,
     {NewAgents, Emigrants, NewModState} = Mod:step(Agents, ModState),
     migrate_agents(Emigrants),
-    NewMetrics = update_metric(migrations, length(Emigrants), Metrics),
+    UpdatedMetrics = update_metric(migrations, length(Emigrants), Metrics),
     schedule_next_step(),
     {noreply, State#state{mod_state = NewModState,
                           agents = NewAgents,
                           step = Step + 1,
-                          metrics = NewMetrics}};
+                          metrics = UpdatedMetrics}};
 handle_info(measure, State) ->
     #state{module = Mod,
            mod_state = ModState,
            agents = Agents,
+           step = Step,
            measurement = Measurement,
            metrics = Metrics,
            measurement_interval = MeasurementInterval} = State,
     {ModMetrics, NewModState} = Mod:measure(Agents, ModState),
-    M1 = update_metric(agents_count, length(Agents), Metrics),
-    M2 = mas_counter:reset(M1),
-    report_metrics(Measurement, ModMetrics ++ dict:to_list(M1)),
+    UpdatedMetrics = update_metric(agents_count, length(Agents), Metrics),
+    ClearedMetrics = mas_counter:reset(Metrics),
+    ReportMetrics = ModMetrics ++ dict:to_list(UpdatedMetrics),
+    report_metrics(Measurement, Step, ReportMetrics),
     schedule_measurement(MeasurementInterval),
     {noreply, State#state{mod_state = NewModState,
                           measurement = Measurement + 1,
-                          metrics = M2}};
+                          metrics = ClearedMetrics}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -202,5 +204,6 @@ update_metric(Name, Value, Metrics) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-report_metrics(Measurement, Metrics) ->
-    mas_logger:info("<MEASUREMENT-~p> ~p", [Measurement, Metrics]).
+report_metrics(Measurement, Step, Metrics) ->
+    mas_logger:info("<MEASUREMENT-~p> <STEP-~p> ~p",
+                    [Measurement, Step, Metrics]).
