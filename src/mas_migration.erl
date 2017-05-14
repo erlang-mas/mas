@@ -6,36 +6,55 @@
 -module(mas_migration).
 
 %%% API
--export([send_to_nodes/2,
-         send_to_populations/2,
-         send_back/2]).
+-export([migrate_agents/1,
+         migrate_to_populations/2,
+         migrate_to_worlds/3,
+         migrate_back/2]).
 
 %%%=============================================================================
 %%% API functions
 %%%=============================================================================
 
 %%------------------------------------------------------------------------------
-%% @doc Partitions provided agents list into number of chunks equal to number
-%%      of possible destinations. Sends each chunk to different node.
+%% @doc Called by population. Initiates migration process by sending group of
+%%      agents to migration dispatcher. Migration dispatcher based on configured
+%%      probability delegates agents to either population broker or world
+%%      broker. Brokers conduct actual migration of agents.
 %% @end
 %%------------------------------------------------------------------------------
-send_to_nodes(Nodes, Agents) ->
-    lists:foreach(fun send_to_node/1, group(Nodes, Agents)).
+migrate_agents(Agents) ->
+    Source = {node(), self()},
+    mas_migration_disp:migrate_agents(Agents, Source).
 
 %%------------------------------------------------------------------------------
-%% @doc Partitions provided agents list into number of chunks equal to number
-%%      of possible destinations. Sends each chunk to different population.
+%% @doc Called by migration broker. Conducts actual migration of agents between
+%%      populations. Partitions provided agents list into number of chunks equal
+%%      to number of possible destinations. Sends each chunk to different
+%%      population.
 %% @end
 %%------------------------------------------------------------------------------
-send_to_populations(Populations, Agents) ->
-    lists:foreach(fun send_to_population/1, group(Populations, Agents)).
+migrate_to_populations(Populations, Agents) ->
+    Migrations = prepare_migrations(Populations, Agents),
+    [migrate_to_population(Migration) || Migration <- Migrations].
 
 %%------------------------------------------------------------------------------
-%% @doc Sends agents back to population that initiated the migration.
+%% @doc Called by migration broker. Conducts actual migration of agents between
+%%      worlds residing on different nodes. Partitions provided agents list into
+%%      number of chunks equal to number of possible destinations. Sends each
+%%      chunk to different node.
 %% @end
 %%------------------------------------------------------------------------------
-send_back(none, _Agents) -> ok;
-send_back(Source, Agents) -> send_to_population({Source, Agents}).
+migrate_to_worlds(Nodes, Agents, Source) ->
+    Migrations = prepare_migrations(Nodes, Agents),
+    [migrate_to_world(Source, Migration) || Migration <- Migrations].
+
+%%------------------------------------------------------------------------------
+%% @doc Migrates agents back to population that initiated migration process.
+%% @end
+%%------------------------------------------------------------------------------
+migrate_back(Population, Agents) ->
+    Migration = {Population, Agents},
+    migrate_to_population(Migration).
 
 %%%=============================================================================
 %%% Internal functions
@@ -44,20 +63,20 @@ send_back(Source, Agents) -> send_to_population({Source, Agents}).
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-group(Destinations, Agents) ->
+prepare_migrations(Destinations, Agents) ->
     AgentGroups = mas_utils:partition(Agents, length(Destinations)),
     lists:zip(mas_utils:shuffle(Destinations), AgentGroups).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-send_to_node({_Node, []}) -> ok;
-send_to_node({Node, Agents}) ->
-    mas_world:put_agents(Node, Agents).
+migrate_to_world(_Source, {_Node, []}) -> ok;
+migrate_to_world(Source, {Node, Agents}) ->
+    mas_world:put_agents(Node, Agents, Source).
 
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-send_to_population({_Population, []}) -> ok;
-send_to_population({Population, Agents}) ->
+migrate_to_population({_Population, []}) -> ok;
+migrate_to_population({Population, Agents}) ->
     mas_population:add_agents(Population, Agents).

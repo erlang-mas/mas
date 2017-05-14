@@ -9,7 +9,7 @@
 
 %%% API
 -export([start_link/0,
-         migrate_agents/1]).
+         migrate_agents/2]).
 
 %%% Server callbacks
 -export([init/1,
@@ -30,8 +30,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-migrate_agents(Agents) ->
-    Source = {node(), self()},
+migrate_agents(Agents, Source) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
 %%%=============================================================================

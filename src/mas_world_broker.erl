@@ -64,18 +64,20 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, _Source = {_Node, Population}}, State) ->
+handle_cast({migrate_agents, Agents, Source = {_Node, Population}}, State) ->
     case State#state.connected_nodes of
         []  ->
-            mas_migration:send_back(Population, Agents);
+            mas_logger:warning("Unable to migrate agents from ~p, sending back",
+                               [Source]),
+            mas_migration:migrate_back(Population, Agents);
         Nodes ->
-            mas_migration:send_to_nodes(Nodes, Agents)
+            mas_migration:migrate_to_worlds(Nodes, Agents, Source)
     end,
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-%%----------s--------------------------------------------------------------------
+%%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
 handle_info(connect_nodes, State) ->

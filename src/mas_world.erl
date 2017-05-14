@@ -12,7 +12,7 @@
 %%% API
 -export([start_link/0,
          migrate_agents/2,
-         put_agents/2]).
+         put_agents/3]).
 
 %%% Server callbacks
 -export([init/1,
@@ -36,8 +36,8 @@ start_link() ->
 migrate_agents(Agents, Source) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
-put_agents(Node, Agents) ->
-    gen_server:cast({?SERVER, Node}, {put_agents, Agents}).
+put_agents(Node, Agents, Source) ->
+    gen_server:cast({?SERVER, Node}, {put_agents, Agents, Source}).
 
 %%%=============================================================================
 %%% Server callbacks
@@ -60,23 +60,15 @@ handle_call(_Request, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-handle_cast({migrate_agents, Agents, {_Node, Population}}, State) ->
+handle_cast({migrate_agents, Agents, Source = {_Node, Population}}, State) ->
     #state{topology = Topology} = State,
-    case mas_topology:nodes_from(Population, Topology) of
-        [] ->
-            mas_migration:send_back(Population, Agents);
-        Destinations ->
-            mas_migration:send_to_populations(Destinations, Agents)
-    end,
+    Destinations = mas_topology:nodes_from(Population, Topology),
+    do_migrate_agents(Destinations, Agents, Source),
     {noreply, State};
-handle_cast({put_agents, Agents}, State) ->
+handle_cast({put_agents, Agents, Source}, State) ->
     #state{topology = Topology} = State,
-    case mas_topology:nodes(Topology) of
-        [] ->
-            mas_logger:warning("No destination for migration target");
-        Destinations ->
-            mas_migration:send_to_populations(Destinations, Agents)
-    end,
+    Destinations = mas_topology:nodes(Topology),
+    do_migrate_agents(Destinations, Agents, Source),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -120,3 +112,16 @@ build_topology(Nodes) ->
 %%------------------------------------------------------------------------------
 spawn_populations(Count) ->
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+do_migrate_agents(Destinations, Agents, Source = {_Node, Population}) ->
+    case Destinations of
+        [] ->
+            mas_logger:warning("Unable to migrate agents from ~p, sending back",
+                               [Source]),
+            mas_migration:migrate_back(Population, Agents);
+        Populations ->
+            mas_migration:migrate_to_populations(Populations, Agents)
+    end.
