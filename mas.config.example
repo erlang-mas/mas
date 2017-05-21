@@ -5,9 +5,9 @@
    {population_count, 12},
    {population_size, 100},
    {topology, mesh},
-   {migration_probability, 0.0001},
-   {node_migration_probability, 0.00001},
    {nodes_topology, grid},
+   {migration_probability, 0.2},
+   {node_migration_probability, 0.5},
    {measurement_interval, 1000},
    {logs_dir, "/logs/mas"},
   ]
