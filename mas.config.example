@@ -6,8 +6,7 @@
    {population_size, 100},
    {topology, mesh},
    {nodes_topology, grid},
-   {migration_probability, 0.2},
-   {node_migration_probability, 0.5},
+   {node_migration_probability, 0.1},
    {measurement_interval, 1000},
    {logs_dir, "/logs/mas"},
   ]

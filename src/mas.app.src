@@ -21,8 +21,7 @@
     {population_count, 12},
     {population_size, 100},
     {topology, mesh},
-    {migration_probability, 0.0001},
-    {node_migration_probability, 0.00001},
+    {node_migration_probability, 0.1},
     {nodes_topology, grid},
     {measurement_interval, 1000}
    ]
