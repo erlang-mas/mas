@@ -23,7 +23,8 @@
     {topology, mesh},
     {node_migration_probability, 0.1},
     {nodes_topology, grid},
-    {measurement_interval, 1000}
+    {measurement_interval, 1000},
+    {debug, false}
    ]
   },
   {modules, []},

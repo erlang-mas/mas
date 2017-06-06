@@ -66,4 +66,24 @@ error(Format, Args) ->
 setup_lager() ->
     application:load(lager),
     LogsDir = filename:join(mas_config:get_env(logs_dir), node()),
-    application:set_env(lager, log_root, LogsDir).
+    Debug = mas_config:get_env(debug),
+    LogLevel = log_level(Debug),
+    application:set_env(lager, log_root, LogsDir),
+    application:set_env(lager, crash_log, false),
+    application:set_env(lager, handlers, log_handlers(LogLevel)).
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+log_level(_Debug = true) -> debug;
+log_level(_Debug) -> info.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+log_handlers(LogLevel) ->
+    [
+     {lager_console_backend, LogLevel},
+     {lager_file_backend, [{file, "error.log"}, {level, error}]},
+     {lager_file_backend, [{file, "console.log"}, {level, LogLevel}]}
+    ].

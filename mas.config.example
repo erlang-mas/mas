@@ -9,6 +9,7 @@
    {node_migration_probability, 0.1},
    {measurement_interval, 1000},
    {logs_dir, "/logs/mas"},
+   {debug, false}
   ]
  }
 ].
