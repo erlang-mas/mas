@@ -50,9 +50,9 @@ migrate_agents(Agents, Source) ->
 %% @private
 %%------------------------------------------------------------------------------
 init(_Args) ->
+    self() ! connect_nodes,
     net_kernel:monitor_nodes(true, [{node_type, hidden}, nodedown_reason]),
     mas_utils:seed_random(),
-    self() ! connect_nodes,
     {ok, #state{}}.
 
 %%------------------------------------------------------------------------------
