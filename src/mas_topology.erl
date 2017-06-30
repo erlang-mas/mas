@@ -146,7 +146,7 @@ nearest_square_base(N) ->
 %%------------------------------------------------------------------------------
 nearest_square_base(N, I) ->
     Square = I * I,
-    case Square > N of
+    case Square >= N of
         true -> I;
         false -> nearest_square_base(N, I + 1)
     end.
