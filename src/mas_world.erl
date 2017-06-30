@@ -111,6 +111,7 @@ build_topology(Nodes) ->
 %% @private
 %%------------------------------------------------------------------------------
 spawn_populations(Count) ->
+    timer:sleep(round(timer:seconds(5))),
     [mas_population_sup:spawn_population() || _ <- lists:seq(1, Count)].
 
 %%------------------------------------------------------------------------------
