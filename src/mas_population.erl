@@ -47,6 +47,9 @@
 -callback measure(population(), mod_state()) ->
     {[metric_entry()], mod_state()}.
 
+-callback stop_condition(population(), mod_state()) ->
+    boolean().
+
 -callback terminate(population(), mod_state()) ->
     any().
 
@@ -109,7 +112,13 @@ handle_info(make_step, State) ->
     {NewAgents, Emigrants, NewModState} = Mod:step(Agents, ModState),
     migrate_agents(Emigrants),
     UpdatedMetrics = update_metric(migrations, length(Emigrants), Metrics),
-    schedule_next_step(),
+    case Mod:stop_condition(NewAgents, NewModState) of
+        true ->
+            mas_logger:info("Stop condition has been met by population ~p",
+                            [self()]),
+            mas_world:notify_stop();
+        false -> schedule_next_step()
+    end,
     {noreply, State#state{mod_state = NewModState,
                           agents = NewAgents,
                           step = Step + 1,

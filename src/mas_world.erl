@@ -12,7 +12,8 @@
 %%% API
 -export([start_link/0,
          migrate_agents/2,
-         put_agents/3]).
+         put_agents/3,
+         notify_stop/0]).
 
 %%% Server callbacks
 -export([init/1,
@@ -35,6 +36,9 @@ start_link() ->
 
 migrate_agents(Agents, Source) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
+
+notify_stop() ->
+    gen_server:cast(?SERVER, notify_stop).
 
 put_agents(Node, Agents, Source) ->
     gen_server:cast({?SERVER, Node}, {put_agents, Agents, Source}).
@@ -64,6 +68,9 @@ handle_cast({migrate_agents, Agents, Source = {_Node, Population}}, State) ->
     #state{topology = Topology} = State,
     Destinations = mas_topology:nodes_from(Population, Topology),
     perform_migration(Destinations, Agents, Source),
+    {noreply, State};
+handle_cast(notify_stop, State) ->
+    mas_simulation:stop_simulation(),
     {noreply, State};
 handle_cast({put_agents, Agents, Source}, State) ->
     #state{topology = Topology} = State,

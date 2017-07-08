@@ -79,9 +79,10 @@ idle(_Event, _From, State) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-processing(stop_simulation, _From, State = #state{simulation = Simulation}) ->
+processing(stop_simulation, From, State = #state{simulation = Simulation}) ->
+    gen_fsm:reply(From, ok),
     do_stop_simulation(Simulation),
-    {reply, ok, idle, State#state{simulation = none}};
+    {next_state, idle, State#state{simulation = none}};
 processing(_Event, _From, State) ->
     {reply, ignored, processing, State}.
 
