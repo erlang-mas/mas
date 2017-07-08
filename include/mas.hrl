@@ -1,6 +1,7 @@
  -record(simulation, {sim_params    :: sim_params(),
                       time          :: pos_integer(),
-                      result_sink   :: {pid(), any()}}).
+                      result_sink   :: {pid(), any()},
+                      start_time    :: integer()}).
 
 -type mod_state()       :: any().
 -type population()      :: [agent()].

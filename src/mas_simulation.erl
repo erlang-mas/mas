@@ -85,7 +85,8 @@ idle(_Event, _From, State) ->
 processing(stop_simulation, From, State = #state{simulation = Simulation}) ->
     gen_fsm:reply(From, ok),
     do_stop_simulation(Simulation),
-    mas_logger:info("Simulation stopped"),
+    Duration = calculate_duration(Simulation),
+    mas_logger:info("Simulation stopped after ~.2f sec.", [Duration]),
     {next_state, idle, State#state{simulation = none}};
 processing(_Event, _From, State) ->
     {reply, ignored, processing, State}.
@@ -145,4 +146,13 @@ schedule_timer(_Time) -> ok.
 %% @private
 %%------------------------------------------------------------------------------
 simulation_record(SP, Time, ResultSink) ->
-    #simulation{sim_params = SP, time = Time, result_sink = ResultSink}.
+    #simulation{sim_params = SP,
+                time = Time,
+                result_sink = ResultSink,
+                start_time = mas_utils:timestamp()}.
+
+%%------------------------------------------------------------------------------
+%% @private
+%%------------------------------------------------------------------------------
+calculate_duration(#simulation{start_time = StartTime}) ->
+    (mas_utils:timestamp() - StartTime) / 1000.
