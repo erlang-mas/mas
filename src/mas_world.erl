@@ -63,12 +63,12 @@ handle_call(_Request, _From, State) ->
 handle_cast({migrate_agents, Agents, Source = {_Node, Population}}, State) ->
     #state{topology = Topology} = State,
     Destinations = mas_topology:nodes_from(Population, Topology),
-    do_migrate_agents(Destinations, Agents, Source),
+    perform_migration(Destinations, Agents, Source),
     {noreply, State};
 handle_cast({put_agents, Agents, Source}, State) ->
     #state{topology = Topology} = State,
     Destinations = mas_topology:nodes(Topology),
-    do_migrate_agents(Destinations, Agents, Source),
+    perform_migration(Destinations, Agents, Source),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -117,12 +117,9 @@ spawn_populations(Count) ->
 %%------------------------------------------------------------------------------
 %% @private
 %%------------------------------------------------------------------------------
-do_migrate_agents(Destinations, Agents, Source = {_Node, Population}) ->
-    case Destinations of
-        [] ->
-            mas_logger:warning("Unable to migrate agents from ~p, sending back",
-                               [Source]),
-            mas_migration:migrate_back(Population, Agents);
-        Populations ->
-            mas_migration:migrate_to_populations(Populations, Agents)
-    end.
+perform_migration([], Agents, Source = {_Node, Population}) ->
+    mas_logger:warning("Unable to migrate agents from ~p, sending agents back",
+                       [Source]),
+    mas_migration:migrate_back(Population, Agents);
+perform_migration(Populations, Agents, _Source) ->
+    mas_migration:migrate_to_populations(Populations, Agents).
