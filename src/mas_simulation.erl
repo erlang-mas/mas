@@ -69,7 +69,10 @@ init(_Args) ->
 %% @private
 %%------------------------------------------------------------------------------
 idle({start_simulation, SP, Time}, From, State) ->
+    mas_logger:info("Starting simultion with parameters: ~p "
+                    "and time constraint: ~p", [SP, Time]),
     mas_sup:start_simulation(SP),
+    mas_logger:info("Simulation started"),
     schedule_timer(Time),
     Simulation = simulation_record(SP, Time, From),
     {reply, ok, processing, State#state{simulation = Simulation}};
@@ -82,6 +85,7 @@ idle(_Event, _From, State) ->
 processing(stop_simulation, From, State = #state{simulation = Simulation}) ->
     gen_fsm:reply(From, ok),
     do_stop_simulation(Simulation),
+    mas_logger:info("Simulation stopped"),
     {next_state, idle, State#state{simulation = none}};
 processing(_Event, _From, State) ->
     {reply, ignored, processing, State}.
