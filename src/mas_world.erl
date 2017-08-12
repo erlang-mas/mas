@@ -12,8 +12,9 @@
 %%% API
 -export([start_link/0,
          migrate_agents/2,
-         put_agents/3,
-         notify_stop/0]).
+         notify_stop/0,
+         notify_stop/1,
+         put_agents/3]).
 
 %%% Server callbacks
 -export([init/1,
@@ -25,7 +26,8 @@
 
 -define(SERVER, ?MODULE).
 
--record(state, {topology    :: topology()}).
+-record(state, {topology                :: topology(),
+                stop_notified = false   :: boolean()}).
 
 %%%=============================================================================
 %%% API functions
@@ -39,6 +41,9 @@ migrate_agents(Agents, Source) ->
 
 notify_stop() ->
     gen_server:cast(?SERVER, notify_stop).
+
+notify_stop(Node) ->
+    gen_server:cast({?SERVER, Node}, notify_stop).
 
 put_agents(Node, Agents, Source) ->
     gen_server:cast({?SERVER, Node}, {put_agents, Agents, Source}).
@@ -69,9 +74,10 @@ handle_cast({migrate_agents, Agents, Source = {_Node, Population}}, State) ->
     Destinations = mas_topology:nodes_from(Population, Topology),
     perform_migration(Destinations, Agents, Source),
     {noreply, State};
-handle_cast(notify_stop, State) ->
+handle_cast(notify_stop, State = #state{stop_notified = false}) ->
+    mas_world_broker:broadcast_stop(),
     mas_simulation:stop_simulation(),
-    {noreply, State};
+    {noreply, State#state{stop_notified = true}};
 handle_cast({put_agents, Agents, Source}, State) ->
     #state{topology = Topology} = State,
     Destinations = mas_topology:nodes(Topology),

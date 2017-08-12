@@ -12,7 +12,8 @@
 
 %%% API
 -export([start_link/0,
-         migrate_agents/2]).
+         migrate_agents/2,
+         broadcast_stop/0]).
 
 %%% Server callbacks
 -export([init/1,
@@ -42,6 +43,9 @@ start_link() ->
 migrate_agents(Agents, Source) ->
     gen_server:cast(?SERVER, {migrate_agents, Agents, Source}).
 
+broadcast_stop() ->
+    gen_server:call(?SERVER, broadcast_stop).
+
 %%%=============================================================================
 %%% Server callbacks
 %%%=============================================================================
@@ -67,6 +71,10 @@ handle_call(_Request, _From, State) ->
 handle_cast({migrate_agents, Agents, Source}, State) ->
     #state{connected_nodes = ConnectedNodes} = State,
     perform_migration(ConnectedNodes, Agents, Source),
+    {noreply, State};
+handle_cast(broadcast_stop, State) ->
+    #state{connected_nodes = ConnectedNodes} = State,
+    [mas_world:notify_stop(Node) || Node <- ConnectedNodes],
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
